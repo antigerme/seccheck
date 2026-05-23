@@ -2,18 +2,16 @@ package br.com.security;
 
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
-import jakarta.servlet.FilterConfig;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
+import jakarta.servlet.annotation.WebFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
+@WebFilter(filterName = "SecurityHeadersFilter", urlPatterns = {"/*"})
 public class SecurityHeadersFilter implements Filter {
-
-    @Override
-    public void init(FilterConfig filterConfig) throws ServletException {}
 
     @Override
     public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain)
@@ -45,17 +43,21 @@ public class SecurityHeadersFilter implements Filter {
         // [SEC] Controla como o Referer e enviado ao navegar
         response.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
 
-        // [SEC] Rejeita metodos HTTP nao utilizados pela aplicacao
+        // [SEC] Restringe APIs sensiveis do browser por padrao
+        response.setHeader("Permissions-Policy",
+            "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()");
+
+        // [SEC] Rejeita metodos HTTP nao utilizados. HEAD e tratado como GET
+        // pelo Servlet API; permitir explicitamente desbloqueia probes/health checkers.
         String method = request.getMethod();
-        if (!method.equalsIgnoreCase("GET") && !method.equalsIgnoreCase("POST")) {
+        if (!method.equalsIgnoreCase("GET")
+            && !method.equalsIgnoreCase("POST")
+            && !method.equalsIgnoreCase("HEAD")) {
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            response.setHeader("Allow", "GET, POST");
+            response.setHeader("Allow", "GET, POST, HEAD");
             return;
         }
 
         chain.doFilter(req, res);
     }
-
-    @Override
-    public void destroy() {}
 }

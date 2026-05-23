@@ -1,21 +1,32 @@
 package br.com.security;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Facade para SLF4J. Mantemos a API existente (debug/info/error) para nao
+ * espalhar refatoracoes pelos chamadores, mas internamente delegamos para o
+ * SLF4J — o mesmo logger que o motor do dependency-check usa. Isso garante
+ * formato e nivel de log consistentes em toda a aplicacao.
+ *
+ * O nivel continua sendo configurado pela variavel de ambiente DPCK_DEBUG
+ * (trace/debug/info/warn/error/off) e propagado para o SLF4J Simple Logger.
+ */
 public class LogUtils {
-    // Variavel DPCK_DEBUG agora aceita niveis do Java/SLF4J (trace, debug, info, warn, error, off)
+
+    private static final Logger LOG = LoggerFactory.getLogger("br.com.security");
+
     public static final String LOG_LEVEL = getEnvLogLevel();
     public static final boolean DEBUG = isDebugOrTrace();
 
     private static String getEnvLogLevel() {
         String envLevel = System.getenv("DPCK_DEBUG");
         if (envLevel == null || envLevel.isBlank()) {
-            return "info"; // Padrao caso a variavel nao seja definida
+            return "info";
         }
         String level = envLevel.trim().toLowerCase();
-        
-        // Fallback de compatibilidade para caso alguem ainda passe "true" ou "false"
         if ("true".equals(level)) return "debug";
         if ("false".equals(level)) return "info";
-        
         return level;
     }
 
@@ -24,41 +35,32 @@ public class LogUtils {
     }
 
     static {
-        // Aplica o nivel de log escolhido pelo usuario direto no motor do OWASP (SLF4J Simple Logger)
         System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", LOG_LEVEL);
-        
-        if (DEBUG) {
-            System.setProperty("org.slf4j.simpleLogger.showDateTime", "true");
-            System.setProperty("org.slf4j.simpleLogger.dateTimeFormat", "HH:mm:ss");
-        }
+        System.setProperty("org.slf4j.simpleLogger.showDateTime", "true");
+        System.setProperty("org.slf4j.simpleLogger.dateTimeFormat", "yyyy-MM-dd HH:mm:ss.SSS");
+        System.setProperty("org.slf4j.simpleLogger.showThreadName", "true");
+        System.setProperty("org.slf4j.simpleLogger.showShortLogName", "true");
     }
 
     public static void debug(String msg) {
-        if (DEBUG) {
-            System.out.println("[DPCK " + LOG_LEVEL.toUpperCase() + "] " + msg);
-        }
+        LOG.debug(msg);
     }
-    
+
     public static void info(String msg) {
-        // INFO exibe apenas se o nivel for info, debug ou trace
-        if ("info".equals(LOG_LEVEL) || DEBUG) {
-            System.out.println("[DPCK INFO] " + msg);
-        }
+        LOG.info(msg);
     }
-    
+
+    public static void warn(String msg) {
+        LOG.warn(msg);
+    }
+
     public static void error(String msg, Throwable t) {
-        // ERROR exibe sempre, a menos que o log esteja desligado (off)
-        if (!"off".equals(LOG_LEVEL)) {
-            System.err.println("[DPCK ERROR] " + msg);
-            if (t != null) {
-                // Se estiver em debug, mostra a arvore inteira da excecao (StackTrace)
-                // Caso contrario, mostra apenas a mensagem principal do erro pra nao poluir o log.
-                if (DEBUG) {
-                    t.printStackTrace();
-                } else {
-                    System.err.println("Motivo: " + t.toString());
-                }
-            }
+        if (t == null) {
+            LOG.error(msg);
+        } else if (DEBUG) {
+            LOG.error(msg, t);
+        } else {
+            LOG.error("{} (motivo: {})", msg, t.toString());
         }
     }
 }

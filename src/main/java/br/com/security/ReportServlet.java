@@ -11,6 +11,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.UUID;
 
 @WebServlet(name = "ReportServlet", urlPatterns = {"/api/report"})
 public class ReportServlet extends HttpServlet {
@@ -19,21 +20,27 @@ public class ReportServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String id = request.getParameter("id");
         if (id == null || id.isBlank()) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            JsonResponse.writeError(response, HttpServletResponse.SC_BAD_REQUEST, "Parametro 'id' ausente.");
+            return;
+        }
+        // [SEC] Valida formato UUID antes de consultar o ScanManager
+        try {
+            UUID.fromString(id);
+        } catch (IllegalArgumentException e) {
+            JsonResponse.writeError(response, HttpServletResponse.SC_BAD_REQUEST, "Scan ID malformado.");
             return;
         }
 
         ScanStatus status = ScanManager.get(id);
         if (status == null || status.getState() != ScanStatus.State.COMPLETED) {
-            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-            response.getWriter().write("Relatorio nao encontrado ou varredura ainda nao concluida.");
+            JsonResponse.writeError(response, HttpServletResponse.SC_NOT_FOUND,
+                "Relatorio nao encontrado ou varredura ainda nao concluida.");
             return;
         }
 
         Path reportPath = status.getReportPath();
         if (reportPath == null || !Files.exists(reportPath)) {
-            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-            response.getWriter().write("Arquivo de relatorio perdido no servidor.");
+            JsonResponse.writeError(response, HttpServletResponse.SC_NOT_FOUND, "Arquivo de relatorio perdido no servidor.");
             return;
         }
 

@@ -1,5 +1,6 @@
 package br.com.security;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.MultipartConfig;
 import jakarta.servlet.annotation.WebServlet;
@@ -13,146 +14,176 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Locale;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.Future;
 
 @WebServlet(name = "UploadServlet", urlPatterns = {"/api/scan"}, asyncSupported = true)
 @MultipartConfig(
     fileSizeThreshold = 1024 * 1024 * 10,           // 10 MB: threshold antes de ir para o disco
-    maxFileSize      = 1024L * 1024 * 1024 * 2,     // 2 GB: teto absoluto (seguranca do container)
-    maxRequestSize   = 1024L * 1024 * 1024 * 2 + 1024 * 1024 // 2 GB + 1 MB de overhead
+    // [SEC] Limite final aplicado em app via DPCK_MAX_FILE_MB. O teto absoluto do
+    // container (2 GB) protege contra clientes mal-comportados que ignoram o erro inicial.
+    maxFileSize      = 1024L * 1024 * 1024 * 2,
+    maxRequestSize   = 1024L * 1024 * 1024 * 2 + 1024 * 1024
 )
 public class UploadServlet extends HttpServlet {
-
-    private final ExecutorService executor = Executors.newFixedThreadPool(4);
 
     @Override
     public void init() throws ServletException {
         super.init();
-        LogUtils.info("UploadServlet inicializado com Pool Fixo de 4 Threads.");
+        LogUtils.info("UploadServlet inicializado (pool gerenciado pelo AppContextListener).");
     }
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        LogUtils.info("=== Nova requisicao POST recebida em /api/scan ===");
-        Part filePart = request.getPart("file");
+        LogUtils.info("POST /api/scan recebido.");
+
+        Part filePart;
+        try {
+            filePart = request.getPart("file");
+        } catch (Exception e) {
+            // IllegalStateException quando excede maxRequestSize do container
+            Metrics.uploadsRejected.incrementAndGet();
+            LogUtils.warn("Multipart invalido: " + e.getMessage());
+            JsonResponse.writeError(response, HttpServletResponse.SC_BAD_REQUEST,
+                "Requisicao multipart invalida ou arquivo excede o teto absoluto.");
+            return;
+        }
 
         if (filePart == null || filePart.getSize() == 0) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.setContentType("application/json");
-            response.setHeader("Cache-Control", "no-store");
-            response.getWriter().write("{\"error\": \"Arquivo invalido ou ausente.\"}");
+            Metrics.uploadsRejected.incrementAndGet();
+            JsonResponse.writeError(response, HttpServletResponse.SC_BAD_REQUEST, "Arquivo invalido ou ausente.");
             return;
         }
 
-        // Limite configuravel via variavel de ambiente DPCK_MAX_FILE_MB (padrao: 500 MB)
-        long maxFileMb;
-        try {
-            String envMax = System.getenv("DPCK_MAX_FILE_MB");
-            maxFileMb = (envMax != null && !envMax.isBlank()) ? Long.parseLong(envMax.trim()) : 500L;
-        } catch (NumberFormatException e) {
-            LogUtils.info("DPCK_MAX_FILE_MB com valor invalido. Usando padrao de 500 MB.");
-            maxFileMb = 500L;
-        }
-        long maxFileBytes = maxFileMb * 1024 * 1024;
+        // Limite configuravel via DPCK_MAX_FILE_MB (padrao: 500 MB)
+        long maxFileMb = AppContextListener.getEnvLong("DPCK_MAX_FILE_MB", 500L);
+        long maxFileBytes = maxFileMb * 1024L * 1024L;
 
         if (filePart.getSize() > maxFileBytes) {
-            LogUtils.info("Upload rejeitado: arquivo com " + (filePart.getSize() / 1024 / 1024) +
-                " MB excede o limite de " + maxFileMb + " MB (DPCK_MAX_FILE_MB).");
-            response.setContentType("application/json");
-            response.setHeader("Cache-Control", "no-store");
-            response.setStatus(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
-            response.getWriter().write("{\"error\": \"Arquivo excede o limite de " + maxFileMb + " MB.\"}");
+            Metrics.uploadsRejected.incrementAndGet();
+            LogUtils.warn("Upload rejeitado: " + (filePart.getSize() / 1024 / 1024) +
+                " MB excede limite de " + maxFileMb + " MB.");
+            JsonResponse.writeError(response, HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE,
+                "Arquivo excede o limite de " + maxFileMb + " MB.");
             return;
         }
 
+        // [SEC] Sanitiza o nome do arquivo:
+        // 1. Trata getSubmittedFileName() == null (Content-Disposition sem filename)
+        // 2. Extrai somente o nome base (descarta separadores de diretorio -> previne path traversal)
+        // 3. Compara extensao case-insensitive
         String submittedFileName = filePart.getSubmittedFileName();
-        // [SEC] Sanitiza o nome do arquivo para evitar Path Traversal (ex: "../../etc/passwd.jar")
-        // Extrai somente o nome base, descartando qualquer separador de diretorio
+        if (submittedFileName == null) submittedFileName = "";
         submittedFileName = new File(submittedFileName).getName();
-        if (submittedFileName.isBlank() ||
-            (!submittedFileName.endsWith(".jar") && !submittedFileName.endsWith(".war"))) {
-            response.setContentType("application/json");
-            response.setHeader("Cache-Control", "no-store");
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.getWriter().write("{\"error\": \"Apenas arquivos .jar e .war sao suportados.\"}");
+
+        String lower = submittedFileName.toLowerCase(Locale.ROOT);
+        String extension;
+        if (lower.endsWith(".jar")) {
+            extension = ".jar";
+        } else if (lower.endsWith(".war")) {
+            extension = ".war";
+        } else {
+            Metrics.uploadsRejected.incrementAndGet();
+            JsonResponse.writeError(response, HttpServletResponse.SC_BAD_REQUEST,
+                "Apenas arquivos .jar e .war sao suportados.");
             return;
         }
 
-        // [SEC] Rejeita se a fila de processamento estiver cheia para evitar DoS por upload
-        ThreadPoolExecutor pool = (ThreadPoolExecutor) executor;
-        if (pool.getQueue().size() >= 10) {
-            LogUtils.info("Fila cheia (" + pool.getQueue().size() + " scans pendentes). Rejeitando upload.");
-            response.setContentType("application/json");
-            response.setHeader("Cache-Control", "no-store");
-            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-            response.getWriter().write("{\"error\": \"Servidor sobrecarregado. Tente novamente em alguns minutos.\"}");
+        // [SEC] Fila cheia -> 503 para evitar DoS por upload
+        if (AppContextListener.isQueueFull()) {
+            Metrics.uploadsRejected.incrementAndGet();
+            LogUtils.warn("Fila cheia (" + AppContextListener.queueSize() + " scans). Rejeitando upload.");
+            JsonResponse.writeError(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE,
+                "Servidor sobrecarregado. Tente novamente em alguns minutos.");
             return;
         }
 
         String scanId = UUID.randomUUID().toString();
-        LogUtils.info("Gerado Scan ID: " + scanId);
+        LogUtils.info("Gerado Scan ID: " + scanId + " (origem: " + submittedFileName + ", " +
+            (filePart.getSize() / 1024 / 1024) + " MB)");
 
         Path tempDir = Files.createTempDirectory("dpck_" + scanId);
-        Path uploadedFile = tempDir.resolve(submittedFileName);
-        
+        // [SEC] Nome fixo baseado em scanId: o nome submetido pelo cliente nao
+        // chega ao disco, evitando qualquer dependencia em caracteres do nome.
+        Path uploadedFile = tempDir.resolve("target-" + scanId + extension);
+        String originalName = submittedFileName; // guardado so para log
+
         try (var inputStream = filePart.getInputStream()) {
             Files.copy(inputStream, uploadedFile, StandardCopyOption.REPLACE_EXISTING);
-            LogUtils.info("Arquivo " + submittedFileName + " gravado com sucesso.");
+            LogUtils.debug("Arquivo gravado em " + uploadedFile);
         } catch (Exception e) {
-            LogUtils.error("Erro ao gravar o arquivo.", e);
-            // [SEC] Garante limpeza do diretorio temporario em caso de falha no upload
-            FileUtils.deleteDirectoryRecursively(tempDir.toFile());
-            response.setContentType("application/json");
-            response.setHeader("Cache-Control", "no-store");
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            response.getWriter().write("{\"error\": \"Erro interno ao salvar o arquivo.\"}" );
+            Metrics.uploadsRejected.incrementAndGet();
+            LogUtils.error("Erro ao gravar arquivo do scan " + scanId, e);
+            FileUtils.deleteDirectoryRecursively(tempDir);
+            JsonResponse.writeError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                "Erro interno ao salvar o arquivo.");
             return;
         }
 
-        // Criar e registrar o status inicial
-        ScanStatus status = new ScanStatus();
-        ScanManager.put(scanId, status);
+        // [SEC] Valida magic bytes ZIP — protege contra extensao falsa
+        if (!FileUtils.isZipMagic(uploadedFile)) {
+            Metrics.uploadsRejected.incrementAndGet();
+            LogUtils.warn("Arquivo " + originalName + " nao e um ZIP/JAR/WAR valido. Descartando.");
+            FileUtils.deleteDirectoryRecursively(tempDir);
+            JsonResponse.writeError(response, HttpServletResponse.SC_BAD_REQUEST,
+                "O arquivo enviado nao parece ser um JAR/WAR valido.");
+            return;
+        }
 
-        // Responder imediatamente o Scan ID
-        response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
-        response.setHeader("Cache-Control", "no-store");
-        response.setStatus(HttpServletResponse.SC_ACCEPTED);
-        response.getWriter().write("{\"scanId\": \"" + scanId + "\", \"message\": \"Varredura iniciada\"}");
+        ScanStatus status = new ScanStatus(tempDir);
+        ScanManager.put(scanId, status);
+        Metrics.uploadsAccepted.incrementAndGet();
+
+        // Responde imediatamente com o Scan ID
+        ObjectNode body = JsonResponse.node();
+        body.put("scanId", scanId);
+        body.put("message", "Varredura iniciada");
+        JsonResponse.write(response, HttpServletResponse.SC_ACCEPTED, body);
         response.getWriter().flush();
 
         // Tarefa em background
-        executor.submit(() -> {
-            try {
-                status.update(ScanStatus.State.RUNNING, "Preparando analise...");
-                status.updateProgress(5, "Iniciando motor de analise...");
-                DependencyCheckRunner runner = new DependencyCheckRunner();
-                Path reportHtml = runner.runScan(uploadedFile, tempDir, status);
-                
-                if (reportHtml != null && Files.exists(reportHtml)) {
-                    LogUtils.info("Scan " + scanId + " concluido com sucesso.");
-                    status.setCompleted(reportHtml, tempDir);
-                } else {
-                    status.update(ScanStatus.State.ERROR, "O relatorio HTML nao foi gerado.");
-                }
-            } catch (Exception e) {
-                LogUtils.error("Falha no processo de scan ID " + scanId, e);
-                // [SEC] Mensagem generica para o cliente (sem expor detalhes internos/stack trace)
-                status.update(ScanStatus.State.ERROR, "Erro interno durante a varredura. Contate o administrador.");
-                // Limpa o diretorio temporario quando da erro fatal (sem relatorio para servir)
-                FileUtils.deleteDirectoryRecursively(tempDir.toFile());
-                ScanManager.remove(scanId);
-            }
-        });
+        Future<?> task = AppContextListener.scanExecutor().submit(() -> runScan(scanId, status, uploadedFile, tempDir));
+        status.setTask(task);
     }
 
+    private void runScan(String scanId, ScanStatus status, Path uploadedFile, Path tempDir) {
+        long start = System.currentTimeMillis();
+        try {
+            status.update(ScanStatus.State.RUNNING, "Preparando analise...");
+            status.updateProgress(5, "Iniciando motor de analise...");
+            DependencyCheckRunner runner = new DependencyCheckRunner();
+            Path reportHtml = runner.runScan(uploadedFile, tempDir, status);
+
+            if (status.isCancelRequested()) {
+                LogUtils.info("Scan " + scanId + " interrompido por cancelamento.");
+                return;
+            }
+
+            if (reportHtml != null && Files.exists(reportHtml)) {
+                LogUtils.info("Scan " + scanId + " concluido em " + (System.currentTimeMillis() - start) + "ms.");
+                status.setCompleted(reportHtml);
+                Metrics.scansCompleted.incrementAndGet();
+                Metrics.totalScanDurationMs.addAndGet(System.currentTimeMillis() - start);
+            } else {
+                status.update(ScanStatus.State.ERROR, "O relatorio HTML nao foi gerado.");
+                Metrics.scansFailed.incrementAndGet();
+            }
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            LogUtils.info("Scan " + scanId + " interrompido.");
+            // ja foi marcado como CANCELLED pelo ScanManager.cancel
+        } catch (Exception e) {
+            LogUtils.error("Falha no scan " + scanId, e);
+            status.update(ScanStatus.State.ERROR, "Erro interno durante a varredura. Contate o administrador.");
+            FileUtils.deleteDirectoryRecursively(tempDir);
+            Metrics.scansFailed.incrementAndGet();
+        }
+    }
 
     @Override
     public void destroy() {
-        executor.shutdown();
+        // Shutdown do pool centralizado no AppContextListener.
         super.destroy();
     }
 }

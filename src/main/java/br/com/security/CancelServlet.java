@@ -10,18 +10,21 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.UUID;
 
-@WebServlet(name = "StatusServlet", urlPatterns = {"/api/status"})
-public class StatusServlet extends HttpServlet {
+/**
+ * Cancela uma varredura em andamento ou na fila.
+ * Aceitamos POST (semantica de mutacao) com o id no parametro de query ou
+ * form, para evitar ler corpo JSON sem necessidade.
+ */
+@WebServlet(name = "CancelServlet", urlPatterns = {"/api/cancel"})
+public class CancelServlet extends HttpServlet {
 
     @Override
-    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String id = request.getParameter("id");
         if (id == null || id.isBlank()) {
             JsonResponse.writeError(response, HttpServletResponse.SC_BAD_REQUEST, "Parametro 'id' ausente.");
             return;
         }
-
-        // [SEC] Valida formato UUID. Falha cedo para qualquer entrada malformada.
         try {
             UUID.fromString(id);
         } catch (IllegalArgumentException e) {
@@ -29,16 +32,16 @@ public class StatusServlet extends HttpServlet {
             return;
         }
 
-        ScanStatus status = ScanManager.get(id);
-        if (status == null) {
-            JsonResponse.writeError(response, HttpServletResponse.SC_NOT_FOUND, "Scan ID nao encontrado");
+        boolean found = ScanManager.cancel(id);
+        if (!found) {
+            JsonResponse.writeError(response, HttpServletResponse.SC_NOT_FOUND, "Scan ID nao encontrado.");
             return;
         }
 
-        ObjectNode node = JsonResponse.node();
-        node.put("state", status.getState().name());
-        node.put("message", status.getMessage());
-        node.put("progress", status.getProgress());
-        JsonResponse.write(response, HttpServletResponse.SC_OK, node);
+        LogUtils.info("Scan " + id + " cancelado por requisicao do cliente.");
+        ObjectNode body = JsonResponse.node();
+        body.put("scanId", id);
+        body.put("cancelled", true);
+        JsonResponse.write(response, HttpServletResponse.SC_OK, body);
     }
 }

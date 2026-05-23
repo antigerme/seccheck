@@ -4,9 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Scanner de Vulnerabilidades | OWASP Dependency-Check</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Outfit:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -23,27 +20,32 @@
 
         <section class="glass-panel">
             <form id="scanForm" enctype="multipart/form-data">
-                
+
                 <div class="form-group upload-area" id="uploadArea">
                     <label for="fileInput" class="upload-label">
                         <div class="upload-icon">
                             <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                         </div>
-                        <span class="upload-text">Arraste seu arquivo .jar ou .war aqui</span>
-                        <span class="upload-hint">ou clique para selecionar</span>
+                        <span class="upload-text" data-i18n="upload.title">Arraste seu arquivo .jar ou .war aqui</span>
+                        <span class="upload-hint" data-i18n="upload.hint">ou clique para selecionar</span>
                     </label>
                     <input type="file" id="fileInput" name="file" accept=".jar,.war" required />
                 </div>
-                
+
+                <div id="formError" class="form-error hidden" role="alert"></div>
+
                 <div id="fileInfo" class="file-info hidden">
-                    <span id="fileName">Nenhum arquivo selecionado</span>
+                    <div class="file-info-text">
+                        <span id="fileName">Nenhum arquivo selecionado</span>
+                        <span id="fileSize" class="file-size"></span>
+                    </div>
                     <button type="button" id="removeFile" class="btn-icon" aria-label="Remover arquivo">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                     </button>
                 </div>
 
                 <button type="submit" id="submitBtn" class="btn-primary hidden">
-                    <span>Iniciar Varredura</span>
+                    <span data-i18n="submit.start">Iniciar Varredura</span>
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
                 </button>
             </form>
@@ -56,19 +58,21 @@
                     </div>
                     <span class="progress-text" id="progressText">0%</span>
                 </div>
-                <h3 id="statusTitle">Enviando arquivo...</h3>
-                <p id="statusMessage">Aguarde, conectando ao servidor.</p>
+                <h3 id="statusTitle" data-i18n="status.sending">Enviando arquivo...</h3>
+                <p id="statusMessage" data-i18n="status.sendingDetail">Aguarde, conectando ao servidor.</p>
                 <div id="actionArea" class="action-area hidden">
                     <a id="downloadBtn" href="#" class="btn-success" download="dependency-check-report.html">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                        Baixar Relatorio HTML
+                        <span data-i18n="submit.download">Baixar Relatorio HTML</span>
                     </a>
-                    <button id="resetBtn" class="btn-outline">Fazer nova varredura</button>
+                    <button id="resetBtn" class="btn-outline" data-i18n="submit.reset">Fazer nova varredura</button>
                 </div>
+                <button id="cancelBtn" class="btn-outline cancel-btn hidden" data-i18n="submit.cancel">Cancelar varredura</button>
             </div>
         </section>
     </main>
 
+    <script src="js/i18n.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
