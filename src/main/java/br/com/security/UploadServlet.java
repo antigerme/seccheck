@@ -162,6 +162,21 @@ public class UploadServlet extends HttpServlet {
 
             if (reportHtml != null && Files.exists(reportHtml)) {
                 LogUtils.info("Scan " + scanId + " concluido em " + (System.currentTimeMillis() - start) + "ms.");
+
+                // Libera o disco assim que o scan termina: o JAR/WAR ja foi analisado e
+                // o relatorio HTML ja esta gravado. So o relatorio precisa sobreviver ate
+                // o cliente baixar (ou o TTL do ScanManager expirar). Em uploads grandes
+                // (centenas de MB) isso evita acumulo significativo no /tmp.
+                try {
+                    long bytes = Files.size(uploadedFile);
+                    Files.deleteIfExists(uploadedFile);
+                    LogUtils.info("Scan " + scanId + ": upload removido apos analise (" +
+                        (bytes / 1024 / 1024) + " MB liberados).");
+                } catch (IOException ioe) {
+                    // Nao critico: o TTL do ScanManager limpa o tempDir inteiro depois.
+                    LogUtils.warn("Falha ao remover upload de " + scanId + ": " + ioe.getMessage());
+                }
+
                 status.setCompleted(reportHtml);
                 Metrics.scansCompleted.incrementAndGet();
                 Metrics.totalScanDurationMs.addAndGet(System.currentTimeMillis() - start);

@@ -34,7 +34,7 @@ public class ReportServlet extends HttpServlet {
         ScanStatus status = ScanManager.get(id);
         if (status == null || status.getState() != ScanStatus.State.COMPLETED) {
             JsonResponse.writeError(response, HttpServletResponse.SC_NOT_FOUND,
-                "Relatorio nao encontrado ou varredura ainda nao concluida.");
+                "Relatorio nao encontrado, varredura nao concluida ou relatorio ja foi baixado.");
             return;
         }
 
@@ -53,6 +53,12 @@ public class ReportServlet extends HttpServlet {
         response.setHeader("Cache-Control", "no-store");
         response.setContentLengthLong(Files.size(reportPath));
 
+        // Politica "no re-download" estrita: o relatorio e descartado independente
+        // do resultado do streaming. Como o front-end desabilita o botao de download
+        // logo apos o primeiro clique, manter um relatorio "de reserva" via TTL nao
+        // ajudaria o usuario — entao removemos no finally. Unica excecao: HEAD
+        // requests (probes/monitoring) nao consomem o scan.
+        boolean isHead = "HEAD".equalsIgnoreCase(request.getMethod());
         try (InputStream in = Files.newInputStream(reportPath);
              OutputStream out = response.getOutputStream()) {
             byte[] buffer = new byte[8192];
@@ -60,8 +66,16 @@ public class ReportServlet extends HttpServlet {
             while ((bytesRead = in.read(buffer)) != -1) {
                 out.write(buffer, 0, bytesRead);
             }
+            out.flush();
+        } catch (IOException ioe) {
+            LogUtils.warn("Download interrompido para scan " + id + ": " + ioe.getMessage());
+            throw ioe;
+        } finally {
+            if (!isHead) {
+                LogUtils.info("Removendo scan " + id + " apos download (politica no-re-download).");
+                FileUtils.deleteDirectoryRecursively(status.getWorkDir());
+                ScanManager.remove(id);
+            }
         }
-        // Limpeza delegada ao ScanManager.cleanExpiredScans() via TTL,
-        // permitindo multiplos downloads enquanto o scan nao expirar.
     }
 }
