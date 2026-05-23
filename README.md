@@ -122,7 +122,7 @@ Por padrão o build não falha — o objetivo é gerar o relatório para inspeç
 | `POST` | `/api/scan` | Recebe multipart com `file` (`.jar`/`.war`). Retorna `{"scanId": "..."}`. |
 | `GET` | `/api/status?id=<uuid>` | Status atual do scan (`QUEUED`, `RUNNING`, `COMPLETED`, `ERROR`, `CANCELLED`). |
 | `POST` | `/api/cancel?id=<uuid>` | Cancela o scan (mesmo se já em andamento). |
-| `GET` | `/api/report?id=<uuid>` | Baixa o relatório HTML (force `attachment`, anti-XSS). |
+| `GET` | `/api/report?id=<uuid>` | Baixa o relatório HTML (force `attachment`, anti-XSS). **Política no-re-download:** o relatório é apagado do servidor imediatamente após o download bem-sucedido — uma chamada subsequente retorna 404. |
 | `GET` | `/api/health[?strict=true]` | Saúde da aplicação. Com `strict=true` retorna 503 quando degradado. Inclui `version` (resumo do build). |
 | `GET` | `/api/metrics` | Contadores: uploads, scans, NVD, heap. |
 | `GET` | `/api/version` | Metadados do build lidos do `MANIFEST.MF` (versão, commit, branch, build time). |

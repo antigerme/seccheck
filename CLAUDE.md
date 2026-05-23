@@ -35,8 +35,10 @@ o que foi validado manualmente.
   de consultar o `ScanManager`.
 - **Limpeza:** ao falhar gravando arquivo de upload, chame
   `FileUtils.deleteDirectoryRecursively(tempDir)`. Em sucesso, o `UploadServlet`
-  ja deleta o arquivo enviado logo apos a engine gerar o relatorio — so o
-  relatorio HTML fica no tempDir ate o TTL do `ScanManager` coletar.
+  ja deleta o arquivo enviado logo apos a engine gerar o relatorio. O proprio
+  relatorio HTML e removido pelo `ReportServlet` imediatamente apos o download
+  bem-sucedido (politica no-re-download). O TTL do `ScanManager` so coleta o
+  que sobrar (downloads interrompidos, scans abandonados em ERROR, etc.).
 - **Build metadata:** versao/commit/branch entram no MANIFEST.MF via
   `git-commit-id-maven-plugin` e sao lidos por `BuildInfo.load()` no startup.
   Para expor um novo campo: adicione em `<manifestEntries>` no `pom.xml`,

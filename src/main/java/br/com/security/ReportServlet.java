@@ -34,7 +34,7 @@ public class ReportServlet extends HttpServlet {
         ScanStatus status = ScanManager.get(id);
         if (status == null || status.getState() != ScanStatus.State.COMPLETED) {
             JsonResponse.writeError(response, HttpServletResponse.SC_NOT_FOUND,
-                "Relatorio nao encontrado ou varredura ainda nao concluida.");
+                "Relatorio nao encontrado, varredura nao concluida ou relatorio ja foi baixado.");
             return;
         }
 
@@ -53,6 +53,7 @@ public class ReportServlet extends HttpServlet {
         response.setHeader("Cache-Control", "no-store");
         response.setContentLengthLong(Files.size(reportPath));
 
+        boolean streamed = false;
         try (InputStream in = Files.newInputStream(reportPath);
              OutputStream out = response.getOutputStream()) {
             byte[] buffer = new byte[8192];
@@ -60,8 +61,24 @@ public class ReportServlet extends HttpServlet {
             while ((bytesRead = in.read(buffer)) != -1) {
                 out.write(buffer, 0, bytesRead);
             }
+            out.flush();
+            streamed = true;
+        } catch (IOException ioe) {
+            // Cliente desconectou ou erro de rede mid-stream: nao deletamos o relatorio
+            // aqui — o TTL do ScanManager limpa depois. O usuario tem essa unica janela
+            // para uma eventual retry (best-effort); se nao usar, a politica de
+            // no-re-download continua valida.
+            LogUtils.warn("Download interrompido para scan " + id + ": " + ioe.getMessage());
+            throw ioe;
         }
-        // Limpeza delegada ao ScanManager.cleanExpiredScans() via TTL,
-        // permitindo multiplos downloads enquanto o scan nao expirar.
+
+        // Politica "no re-download": o servidor entregou os bytes com sucesso. Excluimos
+        // imediatamente para evitar segunda transferencia. Ignorado em HEAD (probes de
+        // monitoring ou clients fazendo HEAD antes do GET nao devem consumir o scan).
+        if (streamed && !"HEAD".equalsIgnoreCase(request.getMethod())) {
+            LogUtils.info("Download concluido para scan " + id + ". Removendo relatorio (politica no-re-download).");
+            FileUtils.deleteDirectoryRecursively(status.getWorkDir());
+            ScanManager.remove(id);
+        }
     }
 }
