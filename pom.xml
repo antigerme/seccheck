@@ -14,6 +14,8 @@
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <jakartaee.version>10.0.0</jakartaee.version>
+        <!-- ISO 8601 UTC para Build-Time no MANIFEST.MF -->
+        <maven.build.timestamp.format>yyyy-MM-dd'T'HH:mm:ss'Z'</maven.build.timestamp.format>
     </properties>
 
     <dependencies>
@@ -58,12 +60,60 @@
     <build>
         <finalName>ROOT</finalName>
         <plugins>
+            <!-- Extrai metadados do .git e expoe como propriedades do Maven (git.commit.id, etc) -->
+            <!-- Em S2I, o builder image clona o .git no diretorio de build, entao isso funciona  -->
+            <!-- sem alteracao na BuildConfig. failOnNoGitDirectory=false torna o build resiliente -->
+            <!-- a "binary builds" (oc start-build a partir de um diretorio sem .git).            -->
+            <plugin>
+                <groupId>io.github.git-commit-id</groupId>
+                <artifactId>git-commit-id-maven-plugin</artifactId>
+                <!-- Plugins do Maven nao resolvem ranges. Pinamos versao estavel recente. -->
+                <version>9.0.1</version>
+                <executions>
+                    <execution>
+                        <id>get-git-info</id>
+                        <goals>
+                            <goal>revision</goal>
+                        </goals>
+                        <phase>initialize</phase>
+                    </execution>
+                </executions>
+                <configuration>
+                    <failOnNoGitDirectory>false</failOnNoGitDirectory>
+                    <failOnUnableToExtractRepoInfo>false</failOnUnableToExtractRepoInfo>
+                    <dateFormat>yyyy-MM-dd'T'HH:mm:ss'Z'</dateFormat>
+                    <dateFormatTimeZone>UTC</dateFormatTimeZone>
+                    <includeOnlyProperties>
+                        <includeOnlyProperty>git.commit.id$</includeOnlyProperty>
+                        <includeOnlyProperty>git.commit.id.abbrev</includeOnlyProperty>
+                        <includeOnlyProperty>git.commit.time</includeOnlyProperty>
+                        <includeOnlyProperty>git.branch</includeOnlyProperty>
+                        <includeOnlyProperty>git.dirty</includeOnlyProperty>
+                    </includeOnlyProperties>
+                </configuration>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-war-plugin</artifactId>
                 <version>3.4.0</version>
                 <configuration>
                     <failOnMissingWebXml>false</failOnMissingWebXml>
+                    <archive>
+                        <manifestEntries>
+                            <!-- Identidade do build: lida em runtime pelo BuildInfo + /api/version -->
+                            <Implementation-Title>${project.artifactId}</Implementation-Title>
+                            <Implementation-Version>${project.version}</Implementation-Version>
+                            <Build-Time>${maven.build.timestamp}</Build-Time>
+                            <Build-Jdk>${java.version}</Build-Jdk>
+                            <!-- Git: vazio quando .git ausente (binary build), nunca quebra -->
+                            <Git-Commit>${git.commit.id}</Git-Commit>
+                            <Git-Commit-Short>${git.commit.id.abbrev}</Git-Commit-Short>
+                            <Git-Commit-Time>${git.commit.time}</Git-Commit-Time>
+                            <Git-Branch>${git.branch}</Git-Branch>
+                            <Git-Dirty>${git.dirty}</Git-Dirty>
+                        </manifestEntries>
+                    </archive>
                 </configuration>
             </plugin>
             <!-- [SEC] Auto-escaneamento: a propria aplicacao varre seu WAR final em busca de CVEs. -->
@@ -80,7 +130,8 @@
                     <plugin>
                         <groupId>org.owasp</groupId>
                         <artifactId>dependency-check-maven</artifactId>
-                        <version>[10.0.0,)</version>
+                        <!-- Plugins do Maven nao resolvem ranges; pinamos versao estavel. -->
+                        <version>10.0.4</version>
                         <configuration>
                             <formats>
                                 <format>HTML</format>

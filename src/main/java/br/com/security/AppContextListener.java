@@ -37,6 +37,8 @@ public class AppContextListener implements ServletContextListener {
 
     @Override
     public void contextInitialized(ServletContextEvent sce) {
+        BuildInfo.load(sce.getServletContext());
+
         poolSize = getEnvInt("DPCK_THREAD_POOL_SIZE", 2);
         queueCapacity = getEnvInt("DPCK_QUEUE_CAPACITY", 10);
 

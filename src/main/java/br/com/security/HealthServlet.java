@@ -29,6 +29,7 @@ public class HealthServlet extends HttpServlet {
         boolean healthy = nvdReady && queueAvailable;
 
         body.put("status", healthy ? "UP" : "DEGRADED");
+        body.put("version", BuildInfo.summary());
         body.put("nvdReady", nvdReady);
         body.put("queueAvailable", queueAvailable);
         body.put("activeScans", ScanManager.activeCount());
