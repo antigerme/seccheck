@@ -34,8 +34,9 @@ o que foi validado manualmente.
 - **Validacao de input:** ids sao UUID — sempre `UUID.fromString(id)` antes
   de consultar o `ScanManager`.
 - **Limpeza:** ao falhar gravando arquivo de upload, chame
-  `FileUtils.deleteDirectoryRecursively(tempDir)`. Em sucesso, deixe que o TTL
-  do `ScanManager` colete.
+  `FileUtils.deleteDirectoryRecursively(tempDir)`. Em sucesso, o `UploadServlet`
+  ja deleta o arquivo enviado logo apos a engine gerar o relatorio — so o
+  relatorio HTML fica no tempDir ate o TTL do `ScanManager` coletar.
 - **Build metadata:** versao/commit/branch entram no MANIFEST.MF via
   `git-commit-id-maven-plugin` e sao lidos por `BuildInfo.load()` no startup.
   Para expor um novo campo: adicione em `<manifestEntries>` no `pom.xml`,
