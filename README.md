@@ -101,7 +101,17 @@ A própria aplicação pode ser escaneada em busca de CVEs durante o build:
 mvn verify -Pself-scan
 ```
 
-Saída em `target/dependency-check-report.html`. Falha o build se houver CVE com CVSS ≥ 9.
+Saída em `target/dependency-check-report.html` (e formatos JSON/XML).
+
+**Implementação:** o profile invoca a classe `br.com.security.tools.SelfScan` via `exec-maven-plugin`. Essa classe usa a biblioteca `dependency-check-core` que **já está declarada com range aberto `[10.0.0,)`** — ou seja, o self-scan **sempre roda na versão mais recente da engine disponível no Maven Central**, sem precisar pinar o plugin `dependency-check-maven` (que Maven 3.9+ exige versão fixa).
+
+Para fazer o build falhar quando qualquer CVE for encontrada:
+
+```bash
+mvn verify -Pself-scan -Dselfscan.failOnAnyCve=true
+```
+
+Por padrão o build não falha — o objetivo é gerar o relatório para inspeção. Se quiser thresholding por CVSS (ex.: falhar só se CVSS ≥ 9), edite `SelfScan.java` para somar pontuação.
 
 ---
 

@@ -123,28 +123,43 @@
     </build>
 
     <profiles>
+        <!-- Self-scan: invoca a classe br.com.security.tools.SelfScan via exec-maven-plugin -->
+        <!-- usando a biblioteca dependency-check-core ja declarada como dependencia com    -->
+        <!-- range aberto [10.0.0,). Assim o scan SEMPRE roda na versao mais recente do     -->
+        <!-- motor, sem precisar pinar o dependency-check-maven plugin (que Maven 3.9 nao   -->
+        <!-- permite mais via LATEST/RELEASE).                                              -->
+        <!--                                                                                -->
+        <!-- Uso: mvn verify -Pself-scan                                                    -->
+        <!--      mvn verify -Pself-scan -Dselfscan.failOnAnyCve=true                       -->
         <profile>
             <id>self-scan</id>
             <build>
                 <plugins>
                     <plugin>
-                        <groupId>org.owasp</groupId>
-                        <artifactId>dependency-check-maven</artifactId>
-                        <!-- Plugins do Maven nao resolvem ranges; pinamos versao estavel. -->
-                        <version>10.0.4</version>
-                        <configuration>
-                            <formats>
-                                <format>HTML</format>
-                                <format>JSON</format>
-                            </formats>
-                            <failBuildOnCVSS>9</failBuildOnCVSS>
-                            <skipProvidedScope>true</skipProvidedScope>
-                        </configuration>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.3.0</version>
                         <executions>
                             <execution>
+                                <id>self-scan</id>
+                                <phase>verify</phase>
                                 <goals>
-                                    <goal>check</goal>
+                                    <goal>java</goal>
                                 </goals>
+                                <configuration>
+                                    <mainClass>br.com.security.tools.SelfScan</mainClass>
+                                    <classpathScope>compile</classpathScope>
+                                    <arguments>
+                                        <argument>${project.build.directory}/${project.build.finalName}.war</argument>
+                                        <argument>${project.build.directory}</argument>
+                                    </arguments>
+                                    <systemProperties>
+                                        <systemProperty>
+                                            <key>selfscan.failOnAnyCve</key>
+                                            <value>${selfscan.failOnAnyCve}</value>
+                                        </systemProperty>
+                                    </systemProperties>
+                                </configuration>
                             </execution>
                         </executions>
                     </plugin>
