@@ -1,8 +1,8 @@
 # SecCheck — guia rapido para o agente
 
 Aplicacao web Jakarta EE que executa OWASP Dependency-Check embutido. Upload
-de `.jar/.war`, scan em background com pool de threads, polling de status e
-download do relatorio HTML.
+de `.jar/.war/.ear`, scan em background com pool de threads, polling de status
+e download do relatorio HTML.
 
 ## Comandos uteis
 

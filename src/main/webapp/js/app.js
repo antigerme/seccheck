@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleFiles(files) {
         if (files.length === 0) return;
         const file = files[0];
-        const validExtensions = ['.jar', '.war'];
+        const validExtensions = ['.jar', '.war', '.ear'];
         const fileExtension = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
 
         if (!validExtensions.includes(fileExtension)) {

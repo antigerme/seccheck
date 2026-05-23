@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.Future;
@@ -27,6 +28,8 @@ import java.util.concurrent.Future;
     maxRequestSize   = 1024L * 1024 * 1024 * 2 + 1024 * 1024
 )
 public class UploadServlet extends HttpServlet {
+
+    private static final List<String> ACCEPTED_EXTENSIONS = List.of(".jar", ".war", ".ear");
 
     @Override
     public void init() throws ServletException {
@@ -78,15 +81,17 @@ public class UploadServlet extends HttpServlet {
         submittedFileName = new File(submittedFileName).getName();
 
         String lower = submittedFileName.toLowerCase(Locale.ROOT);
-        String extension;
-        if (lower.endsWith(".jar")) {
-            extension = ".jar";
-        } else if (lower.endsWith(".war")) {
-            extension = ".war";
-        } else {
+        String extension = null;
+        for (String ext : ACCEPTED_EXTENSIONS) {
+            if (lower.endsWith(ext)) {
+                extension = ext;
+                break;
+            }
+        }
+        if (extension == null) {
             Metrics.uploadsRejected.incrementAndGet();
             JsonResponse.writeError(response, HttpServletResponse.SC_BAD_REQUEST,
-                "Apenas arquivos .jar e .war sao suportados.");
+                "Apenas arquivos .jar, .war e .ear sao suportados.");
             return;
         }
 
@@ -124,10 +129,10 @@ public class UploadServlet extends HttpServlet {
         // [SEC] Valida magic bytes ZIP — protege contra extensao falsa
         if (!FileUtils.isZipMagic(uploadedFile)) {
             Metrics.uploadsRejected.incrementAndGet();
-            LogUtils.warn("Arquivo " + originalName + " nao e um ZIP/JAR/WAR valido. Descartando.");
+            LogUtils.warn("Arquivo " + originalName + " nao e um ZIP/JAR/WAR/EAR valido. Descartando.");
             FileUtils.deleteDirectoryRecursively(tempDir);
             JsonResponse.writeError(response, HttpServletResponse.SC_BAD_REQUEST,
-                "O arquivo enviado nao parece ser um JAR/WAR valido.");
+                "O arquivo enviado nao parece ser um JAR/WAR/EAR valido.");
             return;
         }
 
@@ -163,7 +168,7 @@ public class UploadServlet extends HttpServlet {
             if (reportHtml != null && Files.exists(reportHtml)) {
                 LogUtils.info("Scan " + scanId + " concluido em " + (System.currentTimeMillis() - start) + "ms.");
 
-                // Libera o disco assim que o scan termina: o JAR/WAR ja foi analisado e
+                // Libera o disco assim que o scan termina: o JAR/WAR/EAR ja foi analisado e
                 // o relatorio HTML ja esta gravado. So o relatorio precisa sobreviver ate
                 // o cliente baixar (ou o TTL do ScanManager expirar). Em uploads grandes
                 // (centenas de MB) isso evita acumulo significativo no /tmp.

@@ -60,10 +60,10 @@ public final class FileUtils {
     }
 
     /**
-     * Verifica se o arquivo comeca com os magic bytes de um ZIP/JAR/WAR
+     * Verifica se o arquivo comeca com os magic bytes de um ZIP/JAR/WAR/EAR
      * (50 4B 03 04 = "PK\x03\x04"). Tambem aceita o sinalizador de arquivo
      * vazio (50 4B 05 06) e o de arquivo "spanned" (50 4B 07 08), embora os
-     * dois ultimos sejam raros em JAR/WAR validos.
+     * dois ultimos sejam raros em JAR/WAR/EAR validos.
      */
     public static boolean isZipMagic(Path file) {
         try (var in = Files.newInputStream(file)) {
