@@ -55,6 +55,32 @@
             <artifactId>slf4j-simple</artifactId>
             <version>[2.0.0,)</version>
         </dependency>
+
+        <!-- ============================================================== -->
+        <!-- Overrides de versao para deps transitivas com CVE conhecida.   -->
+        <!-- Maven aplica "nearest wins": declarar aqui sobrescreve a versao-->
+        <!-- que o dependency-check-core traria por padrao.                 -->
+        <!-- Manter como range aberto pra acompanhar futuras correcoes.     -->
+        <!-- ============================================================== -->
+
+        <!-- gson 2.9.0 (transitiva de dependency-check-core) flagada pelo  -->
+        <!-- OSSINDEX em CVE-2025-53864 (atribuicao via sigstore-java).     -->
+        <!-- 2.11+ resolve a flag e e drop-in compativel.                   -->
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>[2.11.0,)</version>
+        </dependency>
+
+        <!-- httpclient5-cache 5.6 (transitiva de dependency-check-core)    -->
+        <!-- vulneravel a CVE-2026-40542 (CVSS 7.3, SCRAM-SHA-256 sem       -->
+        <!-- mutual auth). Fixed em 5.6.1+. O httpclient5 "core" ja sai em  -->
+        <!-- 5.6.1 pela transitiva, so o "-cache" estava atrasado.          -->
+        <dependency>
+            <groupId>org.apache.httpcomponents.client5</groupId>
+            <artifactId>httpclient5-cache</artifactId>
+            <version>[5.6.1,)</version>
+        </dependency>
     </dependencies>
 
     <build>
