@@ -1,6 +1,6 @@
 # SecCheck - Scanner de Vulnerabilidades NVD/OSS (OWASP Dependency-Check)
 
-O **SecCheck** é uma aplicação corporativa robusta construída para auxiliar equipes de Segurança da Informação. A aplicação permite que usuários façam o upload de arquivos `.jar` ou `.war` via interface web e automaticamente roda o motor do **OWASP Dependency-Check Core** de forma embarcada e concorrente, exibindo o status de progresso ao vivo na tela e disponibilizando o relatório final (HTML) para download.
+O **SecCheck** é uma aplicação corporativa robusta construída para auxiliar equipes de Segurança da Informação. A aplicação permite que usuários façam o upload de arquivos `.jar`, `.war` ou `.ear` via interface web e automaticamente roda o motor do **OWASP Dependency-Check Core** de forma embarcada e concorrente, exibindo o status de progresso ao vivo na tela e disponibilizando o relatório final (HTML) para download.
 
 ---
 
@@ -36,7 +36,7 @@ A aplicação não possui *hardcodes* e foi desenhada para o princípio do 12-Fa
 | Variável | Obrigatória | O que faz / Impacto | Exemplo |
 | :--- | :--- | :--- | :--- |
 | `DPCK_DEBUG` | Opcional | Permite controlar o nível de log do JBoss e do motor do OWASP. Você pode usar os níveis padrões do Java: `trace`, `debug`, `info`, `warn` ou `error`. Para máximo detalhamento, use `debug`. Padrão: `info`. | `debug` |
-| `DPCK_MAX_FILE_MB` | Opcional | Tamanho máximo em MB permitido para o upload do arquivo `.jar` ou `.war`. O teto absoluto do container é 2 GB. Padrão: `500`. | `1024` |
+| `DPCK_MAX_FILE_MB` | Opcional | Tamanho máximo em MB permitido para o upload do arquivo `.jar`, `.war` ou `.ear`. O teto absoluto do container é 2 GB. Padrão: `500`. | `1024` |
 | `DPCK_DATA_DIR` | Recomendada | Define a pasta onde o BD H2 (gigantesco) de vulnerabilidades será guardado. **Aponte para um volume persistente**, senão o sistema baixará tudo do zero ao reiniciar. | `/var/lib/dpck-data` |
 | `DPCK_THREAD_POOL_SIZE` | Opcional | Quantos scans podem rodar em paralelo. Padrão `2`. Aumentar acelera a fila, mas consome mais CPU/memória e gera concorrência no H2. | `4` |
 | `DPCK_QUEUE_CAPACITY` | Opcional | Tamanho máximo da fila de scans pendentes antes de retornar 503. Padrão `10`. | `20` |
@@ -119,7 +119,7 @@ Por padrão o build não falha — o objetivo é gerar o relatório para inspeç
 
 | Método | Rota | Descrição |
 | :--- | :--- | :--- |
-| `POST` | `/api/scan` | Recebe multipart com `file` (`.jar`/`.war`). Retorna `{"scanId": "..."}`. |
+| `POST` | `/api/scan` | Recebe multipart com `file` (`.jar`/`.war`/`.ear`). Retorna `{"scanId": "..."}`. |
 | `GET` | `/api/status?id=<uuid>` | Status atual do scan (`QUEUED`, `RUNNING`, `COMPLETED`, `ERROR`, `CANCELLED`). |
 | `POST` | `/api/cancel?id=<uuid>` | Cancela o scan (mesmo se já em andamento). |
 | `GET` | `/api/report?id=<uuid>` | Baixa o relatório HTML (force `attachment`, anti-XSS). **Política no-re-download estrita:** o relatório é apagado do servidor após o download (sucesso ou falha de stream). `HEAD` não consome. |

@@ -4,9 +4,9 @@
 (function () {
     const MESSAGES = {
         "pt-BR": {
-            "upload.title": "Arraste seu arquivo .jar ou .war aqui",
+            "upload.title": "Arraste seu arquivo .jar, .war ou .ear aqui",
             "upload.hint": "ou clique para selecionar",
-            "upload.invalid": "Apenas arquivos .jar e .war sao suportados.",
+            "upload.invalid": "Apenas arquivos .jar, .war e .ear sao suportados.",
             "upload.tooBig": "Arquivo muito grande para o limite do servidor.",
             "submit.start": "Iniciar Varredura",
             "submit.cancel": "Cancelar varredura",
@@ -30,9 +30,9 @@
             "status.unexpected": "Resposta inesperada do servidor."
         },
         "en-US": {
-            "upload.title": "Drop your .jar or .war file here",
+            "upload.title": "Drop your .jar, .war or .ear file here",
             "upload.hint": "or click to select",
-            "upload.invalid": "Only .jar and .war files are supported.",
+            "upload.invalid": "Only .jar, .war and .ear files are supported.",
             "upload.tooBig": "File too large for the server limit.",
             "submit.start": "Start Scan",
             "submit.cancel": "Cancel scan",
