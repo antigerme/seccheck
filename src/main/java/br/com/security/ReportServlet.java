@@ -53,7 +53,12 @@ public class ReportServlet extends HttpServlet {
         response.setHeader("Cache-Control", "no-store");
         response.setContentLengthLong(Files.size(reportPath));
 
-        boolean streamed = false;
+        // Politica "no re-download" estrita: o relatorio e descartado independente
+        // do resultado do streaming. Como o front-end desabilita o botao de download
+        // logo apos o primeiro clique, manter um relatorio "de reserva" via TTL nao
+        // ajudaria o usuario — entao removemos no finally. Unica excecao: HEAD
+        // requests (probes/monitoring) nao consomem o scan.
+        boolean isHead = "HEAD".equalsIgnoreCase(request.getMethod());
         try (InputStream in = Files.newInputStream(reportPath);
              OutputStream out = response.getOutputStream()) {
             byte[] buffer = new byte[8192];
@@ -62,23 +67,15 @@ public class ReportServlet extends HttpServlet {
                 out.write(buffer, 0, bytesRead);
             }
             out.flush();
-            streamed = true;
         } catch (IOException ioe) {
-            // Cliente desconectou ou erro de rede mid-stream: nao deletamos o relatorio
-            // aqui — o TTL do ScanManager limpa depois. O usuario tem essa unica janela
-            // para uma eventual retry (best-effort); se nao usar, a politica de
-            // no-re-download continua valida.
             LogUtils.warn("Download interrompido para scan " + id + ": " + ioe.getMessage());
             throw ioe;
-        }
-
-        // Politica "no re-download": o servidor entregou os bytes com sucesso. Excluimos
-        // imediatamente para evitar segunda transferencia. Ignorado em HEAD (probes de
-        // monitoring ou clients fazendo HEAD antes do GET nao devem consumir o scan).
-        if (streamed && !"HEAD".equalsIgnoreCase(request.getMethod())) {
-            LogUtils.info("Download concluido para scan " + id + ". Removendo relatorio (politica no-re-download).");
-            FileUtils.deleteDirectoryRecursively(status.getWorkDir());
-            ScanManager.remove(id);
+        } finally {
+            if (!isHead) {
+                LogUtils.info("Removendo scan " + id + " apos download (politica no-re-download).");
+                FileUtils.deleteDirectoryRecursively(status.getWorkDir());
+                ScanManager.remove(id);
+            }
         }
     }
 }
