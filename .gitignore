@@ -1,0 +1,22 @@
+# Maven build output
+target/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# Arquivos de ambiente com credenciais (NVD_API_KEY, OSS_INDEX_PASS, etc.)
+.env
+*.env
+
+# Logs
+*.log
+
+# macOS / Windows
+.DS_Store
+Thumbs.db
