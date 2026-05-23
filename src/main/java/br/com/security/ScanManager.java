@@ -1,27 +1,43 @@
 package br.com.security;
 
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Registro central das varreduras em execucao. Continua estatico para manter
+ * a API simples nos servlets, mas a inicializacao do cleaner agora e
+ * controlada pelo AppContextListener (via {@link #startCleaner()}) e a
+ * derrubada por {@link #shutdown()}, evitando vazamento de thread quando o
+ * WAR e parado/redeployado.
+ */
 public class ScanManager {
-    // Armazena em memoria o status de cada varredura pela chave UUID
+
     private static final ConcurrentHashMap<String, ScanStatus> scans = new ConcurrentHashMap<>();
 
-    // TTL padrao: 2 horas para scans concluidos/erro, 4 horas para scans travados em RUNNING
     private static final long TTL_FINISHED_MS = getEnvLong("DPCK_SCAN_TTL_MINUTES", 120) * 60 * 1000;
     private static final long TTL_STUCK_MS = getEnvLong("DPCK_SCAN_STUCK_MINUTES", 240) * 60 * 1000;
 
-    private static final ScheduledExecutorService cleaner = Executors.newSingleThreadScheduledExecutor(r -> {
-        Thread t = new Thread(r, "dpck-scan-cleaner");
-        t.setDaemon(true);
-        return t;
-    });
+    private static volatile ScheduledExecutorService cleaner;
 
-    static {
-        // A cada 15 minutos, verifica e remove scans expirados
+    public static synchronized void startCleaner() {
+        if (cleaner != null) return;
+        cleaner = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "dpck-scan-cleaner");
+            t.setDaemon(true);
+            return t;
+        });
         cleaner.scheduleAtFixedRate(ScanManager::cleanExpiredScans, 15, 15, TimeUnit.MINUTES);
+        LogUtils.info("ScanManager cleaner iniciado (TTL concluidos: " + (TTL_FINISHED_MS / 60000) +
+            " min, TTL travados: " + (TTL_STUCK_MS / 60000) + " min)");
+    }
+
+    public static synchronized void shutdown() {
+        if (cleaner == null) return;
+        cleaner.shutdownNow();
+        cleaner = null;
     }
 
     public static void put(String id, ScanStatus status) {
@@ -36,13 +52,48 @@ public class ScanManager {
         scans.remove(id);
     }
 
+    public static int activeCount() {
+        return scans.size();
+    }
+
+    public static Map<String, ScanStatus> snapshot() {
+        return Map.copyOf(scans);
+    }
+
     /**
-     * Remove scans expirados da memoria e limpa seus diretorios temporarios do disco.
-     * - COMPLETED/ERROR: expira apos TTL_FINISHED_MS (padrao 2h)
-     * - RUNNING travado: expira apos TTL_STUCK_MS (padrao 4h) como rede de seguranca
-     * - QUEUED: mesma regra de RUNNING (caso fique na fila indefinidamente)
+     * Sinaliza cancelamento, interrompe a task se possivel e remove o scan da
+     * memoria. Retorna true se o scan existia (mesmo que ja estivesse em
+     * estado final).
      */
-    private static void cleanExpiredScans() {
+    public static boolean cancel(String id) {
+        ScanStatus status = scans.get(id);
+        if (status == null) return false;
+
+        synchronized (status) {
+            if (status.isFinal()) {
+                return true;
+            }
+            status.requestCancel();
+            if (status.getTask() != null) {
+                status.getTask().cancel(true);
+            }
+            status.setCancelled();
+        }
+
+        if (status.getWorkDir() != null) {
+            FileUtils.deleteDirectoryRecursively(status.getWorkDir());
+        }
+        Metrics.scansCancelled.incrementAndGet();
+        return true;
+    }
+
+    /**
+     * Remove scans expirados da memoria e limpa seus diretorios temporarios.
+     * - COMPLETED/ERROR/CANCELLED: expira apos TTL_FINISHED_MS (padrao 2h)
+     * - RUNNING travado: expira apos TTL_STUCK_MS (padrao 4h)
+     * - QUEUED: mesma regra de RUNNING
+     */
+    static void cleanExpiredScans() {
         long now = System.currentTimeMillis();
         int removed = 0;
 
@@ -54,20 +105,18 @@ public class ScanManager {
             boolean expired = false;
             ScanStatus.State state = status.getState();
 
-            if ((state == ScanStatus.State.COMPLETED || state == ScanStatus.State.ERROR)
-                    && age > TTL_FINISHED_MS) {
+            if (status.isFinal() && age > TTL_FINISHED_MS) {
                 expired = true;
             } else if ((state == ScanStatus.State.RUNNING || state == ScanStatus.State.QUEUED)
                     && age > TTL_STUCK_MS) {
                 expired = true;
-                LogUtils.info("Scan " + id + " em estado " + state + " ha mais de " +
+                LogUtils.warn("Scan " + id + " em estado " + state + " ha mais de " +
                     (TTL_STUCK_MS / 60000) + " min. Considerando travado e removendo.");
             }
 
             if (expired) {
-                // Limpar diretorio temporario do disco
                 if (status.getWorkDir() != null) {
-                    FileUtils.deleteDirectoryRecursively(status.getWorkDir().toFile());
+                    FileUtils.deleteDirectoryRecursively(status.getWorkDir());
                 }
                 scans.remove(id);
                 removed++;
@@ -77,8 +126,8 @@ public class ScanManager {
         }
 
         if (removed > 0) {
-            LogUtils.info("Limpeza automatica concluida: " + removed + " scan(s) expirado(s) removido(s). " +
-                "Scans ativos restantes: " + scans.size());
+            LogUtils.info("Limpeza automatica concluida: " + removed + " scan(s) expirado(s). " +
+                "Ativos restantes: " + scans.size());
         }
     }
 

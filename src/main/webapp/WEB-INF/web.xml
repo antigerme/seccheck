@@ -5,7 +5,7 @@
          version="6.0">
 
     <display-name>SecCheck App</display-name>
-    
+
     <session-config>
         <session-timeout>30</session-timeout>
         <cookie-config>
@@ -17,14 +17,24 @@
         <tracking-mode>COOKIE</tracking-mode>
     </session-config>
 
-    <!-- [SEC] Headers de seguranca HTTP globais para todas as respostas -->
-    <filter>
-        <filter-name>SecurityHeadersFilter</filter-name>
-        <filter-class>br.com.security.SecurityHeadersFilter</filter-class>
-    </filter>
-    <filter-mapping>
-        <filter-name>SecurityHeadersFilter</filter-name>
-        <url-pattern>/*</url-pattern>
-    </filter-mapping>
+    <!-- O SecurityHeadersFilter agora se registra via @WebFilter("/*") -->
+
+    <!-- [SEC] Paginas de erro customizadas: evitam expor stack traces e banner do container -->
+    <error-page>
+        <error-code>404</error-code>
+        <location>/error/404.html</location>
+    </error-page>
+    <error-page>
+        <error-code>500</error-code>
+        <location>/error/500.html</location>
+    </error-page>
+    <error-page>
+        <error-code>503</error-code>
+        <location>/error/503.html</location>
+    </error-page>
+    <error-page>
+        <exception-type>java.lang.Throwable</exception-type>
+        <location>/error/500.html</location>
+    </error-page>
 
 </web-app>

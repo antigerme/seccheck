@@ -4,39 +4,41 @@ import org.owasp.dependencycheck.Engine;
 import org.owasp.dependencycheck.utils.Settings;
 
 import java.nio.file.Path;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 public class DependencyCheckRunner {
 
     public static Settings createSettings() {
-        LogUtils.info("DependencyCheckRunner.createSettings() - Instanciando Settings...");
+        LogUtils.debug("createSettings() - instanciando Settings");
         Settings settings = new Settings();
-        
+
         String dataDir = System.getenv("DPCK_DATA_DIR");
         if (dataDir == null || dataDir.isBlank()) {
             dataDir = System.getProperty("user.home") + "/.dependency-check/data";
             LogUtils.info("DPCK_DATA_DIR nao definido. Usando diretorio padrao: " + dataDir);
         } else {
-            LogUtils.info("DPCK_DATA_DIR definido: " + dataDir);
+            LogUtils.debug("DPCK_DATA_DIR: " + dataDir);
         }
         settings.setString("data.directory", dataDir);
 
         String nvdApiKey = System.getenv("NVD_API_KEY");
         if (nvdApiKey != null && !nvdApiKey.isBlank()) {
-            LogUtils.info("NVD_API_KEY configurada. Injetando nas propriedades.");
+            LogUtils.debug("NVD_API_KEY configurada.");
             settings.setString("nvd.api.key", nvdApiKey);
         } else {
-            LogUtils.info("AVISO: NVD_API_KEY NAO definida.");
+            LogUtils.warn("NVD_API_KEY NAO definida. Sujeito a rate limit do governo americano.");
         }
 
         String ossUser = System.getenv("OSS_INDEX_USER");
         String ossPass = System.getenv("OSS_INDEX_PASS");
-        
-        // Garante explicitamente que o analisador do OSS Index sera executado
-        LogUtils.info("Forcando ativacao do analisador OSS Index na Engine.");
+
         settings.setBoolean("analyzer.ossindex.enabled", true);
-        
+        LogUtils.debug("Analisador OSS Index ativado.");
+
         if (ossUser != null && !ossUser.isBlank() && ossPass != null && !ossPass.isBlank()) {
-            LogUtils.info("OSS_INDEX credentials configuradas.");
             settings.setString("analyzer.ossindex.user", ossUser);
             settings.setString("analyzer.ossindex.password", ossPass);
         }
@@ -50,57 +52,82 @@ public class DependencyCheckRunner {
                 settings.setString("proxy.port", proxyPort);
             }
         }
-        
-        LogUtils.info("Configurando 'auto.update' para false para esta varredura (evitar conflito/lentidao).");
+
         settings.setBoolean("auto.update", false);
-        
-        LogUtils.info("Settings montado com sucesso.");
         return settings;
     }
 
     public Path runScan(Path targetFile, Path workDir, ScanStatus status) throws Exception {
         Path reportHtml = workDir.resolve("dependency-check-report.html");
-        
-        LogUtils.info("runScan iniciado para arquivo: " + targetFile.toString());
+
+        LogUtils.info("runScan iniciado: " + targetFile);
         status.updateProgress(10, "Aguardando acesso ao banco de dados...");
 
-        LogUtils.info("Aguardando ReadLock do banco de dados (em caso de update paralelo)...");
+        checkCancellation(status);
+
+        LogUtils.debug("Aguardando ReadLock (em caso de update paralelo).");
         DatabaseUpdater.DB_LOCK.readLock().lock();
-        LogUtils.info("ReadLock ADQUIRIDO.");
-        
+        LogUtils.debug("ReadLock adquirido.");
+
+        // Smoother de progresso: avanca lentamente entre checkpoints conhecidos
+        // para o cliente nao ficar parado em 30% por minutos seguidos.
+        ScheduledExecutorService smoother = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "dpck-progress-smoother");
+            t.setDaemon(true);
+            return t;
+        });
+        int[] target = {30}; // alvo controlado pelas fases abaixo
+        ScheduledFuture<?> smoothing = smoother.scheduleAtFixedRate(() -> {
+            int current = status.getProgress();
+            if (current < target[0] - 1) {
+                // Avanca 1pp a cada 2s ate o target
+                status.updateProgress(current + 1, status.getMessage());
+            }
+        }, 2, 2, TimeUnit.SECONDS);
+
         try {
-            status.updateProgress(15, "Preparando configuracoes do motor de analise...");
+            status.updateProgress(15, "Preparando configuracoes do motor...");
+            checkCancellation(status);
             Settings settings = createSettings();
 
             status.updateProgress(20, "Iniciando motor OWASP Dependency-Check...");
-            LogUtils.info("Iniciando instancia da Engine do Dependency-Check...");
             try (Engine engine = new Engine(settings)) {
-                LogUtils.info("Engine instanciada. Adicionando arquivo para scan: " + targetFile.toFile().getAbsolutePath());
+                checkCancellation(status);
+                LogUtils.info("Engine instanciada. Submetendo arquivo: " + targetFile.getFileName());
                 engine.scan(targetFile.toFile());
-                
+
+                target[0] = 70;
                 status.updateProgress(30, "Analisando dependencias encontradas...");
-                LogUtils.info("Iniciando analyzeDependencies() do motor...");
+                checkCancellation(status);
                 engine.analyzeDependencies();
                 LogUtils.info("analyzeDependencies() concluido.");
-                
+
+                target[0] = 95;
                 status.updateProgress(80, "Gerando relatorio HTML...");
-                LogUtils.info("Gerando relatorio HTML em: " + workDir.toFile().getAbsolutePath());
+                checkCancellation(status);
                 engine.writeReports("SecCheck Analysis", workDir.toFile(), "HTML", null);
-                
+
                 status.updateProgress(95, "Finalizando...");
-                LogUtils.info("Relatorio final gerado: " + reportHtml.toAbsolutePath());
+                LogUtils.info("Relatorio gerado: " + reportHtml.toAbsolutePath());
             } catch (Exception ex) {
-                LogUtils.error("Erro fatal capturado durante o scan/engine.", ex);
+                LogUtils.error("Erro durante o scan/engine.", ex);
                 throw ex;
             } finally {
-                LogUtils.info("Limpando settings (cleanup).");
                 settings.cleanup();
             }
         } finally {
-            LogUtils.info("Liberando ReadLock do banco de dados.");
+            smoothing.cancel(true);
+            smoother.shutdownNow();
             DatabaseUpdater.DB_LOCK.readLock().unlock();
+            LogUtils.debug("ReadLock liberado.");
         }
 
         return reportHtml;
+    }
+
+    private void checkCancellation(ScanStatus status) throws InterruptedException {
+        if (status.isCancelRequested() || Thread.currentThread().isInterrupted()) {
+            throw new InterruptedException("Scan cancelado pelo usuario.");
+        }
     }
 }
