@@ -1,0 +1,11 @@
+br/com/security/DependencyCheckRunner.class
+br/com/security/FileUtils.class
+br/com/security/DatabaseUpdater.class
+br/com/security/ScanStatus.class
+br/com/security/ReportServlet.class
+br/com/security/StatusServlet.class
+br/com/security/UploadServlet.class
+br/com/security/ScanStatus$State.class
+br/com/security/SecurityHeadersFilter.class
+br/com/security/ScanManager.class
+br/com/security/LogUtils.class

@@ -1,0 +1,60 @@
+package br.com.security;
+
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+@WebServlet(name = "ReportServlet", urlPatterns = {"/api/report"})
+public class ReportServlet extends HttpServlet {
+
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        String id = request.getParameter("id");
+        if (id == null || id.isBlank()) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return;
+        }
+
+        ScanStatus status = ScanManager.get(id);
+        if (status == null || status.getState() != ScanStatus.State.COMPLETED) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            response.getWriter().write("Relatorio nao encontrado ou varredura ainda nao concluida.");
+            return;
+        }
+
+        Path reportPath = status.getReportPath();
+        if (reportPath == null || !Files.exists(reportPath)) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            response.getWriter().write("Arquivo de relatorio perdido no servidor.");
+            return;
+        }
+
+        // [SEC] Forcamos download (attachment) ao inves de renderizar o HTML no mesmo contexto.
+        // Isso isola o relatorio do contexto da aplicacao, evitando XSS via conteudo do relatorio.
+        response.setContentType("text/html");
+        response.setCharacterEncoding("UTF-8");
+        response.setHeader("Content-Disposition", "attachment; filename=\"dependency-check-report.html\"");
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        response.setHeader("Cache-Control", "no-store");
+        response.setContentLengthLong(Files.size(reportPath));
+
+        try (InputStream in = Files.newInputStream(reportPath);
+             OutputStream out = response.getOutputStream()) {
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            while ((bytesRead = in.read(buffer)) != -1) {
+                out.write(buffer, 0, bytesRead);
+            }
+        }
+        // Limpeza delegada ao ScanManager.cleanExpiredScans() via TTL,
+        // permitindo multiplos downloads enquanto o scan nao expirar.
+    }
+}

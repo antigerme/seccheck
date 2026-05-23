@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns="https://jakarta.ee/xml/ns/jakartaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd"
+         version="6.0">
+
+    <display-name>SecCheck App</display-name>
+    
+    <session-config>
+        <session-timeout>30</session-timeout>
+        <cookie-config>
+            <!-- [SEC] Cookie de sessao nao acessivel via JavaScript -->
+            <http-only>true</http-only>
+            <!-- [SEC] Cookie somente por HTTPS (ative em producao) -->
+            <!-- <secure>true</secure> -->
+        </cookie-config>
+        <tracking-mode>COOKIE</tracking-mode>
+    </session-config>
+
+    <!-- [SEC] Headers de seguranca HTTP globais para todas as respostas -->
+    <filter>
+        <filter-name>SecurityHeadersFilter</filter-name>
+        <filter-class>br.com.security.SecurityHeadersFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>SecurityHeadersFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
+</web-app>
