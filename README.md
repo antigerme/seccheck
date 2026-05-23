@@ -75,6 +75,24 @@ Se o servidor ficar isolado sem internet direta, o motor do Dependency-Check pre
    /opt/jboss-ews/bin/catalina.sh run
    ```
 
+### Metadados do build (versão, git commit)
+
+O `MANIFEST.MF` do WAR final inclui automaticamente `Implementation-Version`,
+`Build-Time`, `Git-Commit`, `Git-Branch`, etc., via `git-commit-id-maven-plugin`.
+
+- **Build local (`mvn package`)** ou **OpenShift S2I**: o plugin lê do `.git` do
+  checkout. Ambos os fluxos funcionam sem configuração extra.
+- **Binary build** (`oc start-build --from-dir`, sem `.git`): os campos `Git-*`
+  ficam vazios — o build não falha. Implementation-Version e Build-Time
+  continuam preenchidos.
+
+Em runtime, consulte `GET /api/version` ou veja o campo `version` em
+`/api/health`. Ao subir, a aplicação loga uma linha como:
+
+```
+[INFO] Build deployado: 1.0-SNAPSHOT @a1b2c3d (built 2026-05-23T15:30:42Z)
+```
+
 ### Auto-escaneamento (self-scan)
 
 A própria aplicação pode ser escaneada em busca de CVEs durante o build:
@@ -95,8 +113,9 @@ Saída em `target/dependency-check-report.html`. Falha o build se houver CVE com
 | `GET` | `/api/status?id=<uuid>` | Status atual do scan (`QUEUED`, `RUNNING`, `COMPLETED`, `ERROR`, `CANCELLED`). |
 | `POST` | `/api/cancel?id=<uuid>` | Cancela o scan (mesmo se já em andamento). |
 | `GET` | `/api/report?id=<uuid>` | Baixa o relatório HTML (force `attachment`, anti-XSS). |
-| `GET` | `/api/health[?strict=true]` | Saúde da aplicação. Com `strict=true` retorna 503 quando degradado. |
+| `GET` | `/api/health[?strict=true]` | Saúde da aplicação. Com `strict=true` retorna 503 quando degradado. Inclui `version` (resumo do build). |
 | `GET` | `/api/metrics` | Contadores: uploads, scans, NVD, heap. |
+| `GET` | `/api/version` | Metadados do build lidos do `MANIFEST.MF` (versão, commit, branch, build time). |
 
 ---
 

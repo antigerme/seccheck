@@ -36,6 +36,10 @@ o que foi validado manualmente.
 - **Limpeza:** ao falhar gravando arquivo de upload, chame
   `FileUtils.deleteDirectoryRecursively(tempDir)`. Em sucesso, deixe que o TTL
   do `ScanManager` colete.
+- **Build metadata:** versao/commit/branch entram no MANIFEST.MF via
+  `git-commit-id-maven-plugin` e sao lidos por `BuildInfo.load()` no startup.
+  Para expor um novo campo: adicione em `<manifestEntries>` no `pom.xml`,
+  depois em `putIfPresent` em `BuildInfo.java`.
 
 ## Seguranca
 
