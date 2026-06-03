@@ -13,6 +13,7 @@ public class ScanStatus {
     private String message;
     private int progress;
     private Path reportPath;
+    private Path sbomPath;
     private Path workDir;
     private Future<?> task;
     private volatile boolean cancelRequested;
@@ -35,6 +36,8 @@ public class ScanStatus {
     public synchronized String getMessage() { return message; }
     public synchronized int getProgress() { return progress; }
     public synchronized Path getReportPath() { return reportPath; }
+    public synchronized Path getSbomPath() { return sbomPath; }
+    public synchronized void setSbomPath(Path sbomPath) { this.sbomPath = sbomPath; }
     public synchronized Path getWorkDir() { return workDir; }
     public long getCreatedAt() { return createdAt; }
     public synchronized long getStartedAt() { return startedAt; }

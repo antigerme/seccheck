@@ -72,9 +72,11 @@ public class ReportServlet extends HttpServlet {
             throw ioe;
         } finally {
             if (!isHead) {
-                LogUtils.info("Removendo scan " + id + " apos download (politica no-re-download).");
-                FileUtils.deleteDirectoryRecursively(status.getWorkDir());
-                ScanManager.remove(id);
+                // Politica "no re-download" por formato: apaga so o HTML; se ja
+                // nao houver SBOM tambem, o ScanCleanup descarta o workDir e
+                // remove o scan do ScanManager.
+                LogUtils.info("Removendo HTML do scan " + id + " apos download (politica no-re-download).");
+                ScanCleanup.afterFileConsumed(id, status, reportPath);
             }
         }
     }

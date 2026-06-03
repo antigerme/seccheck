@@ -3,7 +3,9 @@ package br.com.security;
 import org.owasp.dependencycheck.Engine;
 import org.owasp.dependencycheck.utils.Settings;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -102,10 +104,27 @@ public class DependencyCheckRunner {
                 engine.analyzeDependencies();
                 LogUtils.info("analyzeDependencies() concluido.");
 
-                target[0] = 95;
+                target[0] = 90;
                 status.updateProgress(80, "Gerando relatorio HTML...");
                 checkCancellation(status);
                 engine.writeReports("SecCheck Analysis", workDir.toFile(), "HTML", null);
+
+                target[0] = 95;
+                status.updateProgress(88, "Gerando SBOM (CycloneDX)...");
+                checkCancellation(status);
+                try {
+                    engine.writeReports("SecCheck Analysis", workDir.toFile(), "CYCLONEDX", null);
+                    Path sbom = locateSbom(workDir);
+                    if (sbom != null) {
+                        status.setSbomPath(sbom);
+                        LogUtils.info("SBOM CycloneDX gerado: " + sbom.toAbsolutePath());
+                    } else {
+                        LogUtils.warn("Nenhum arquivo SBOM CycloneDX encontrado em " + workDir);
+                    }
+                } catch (Exception sbomEx) {
+                    // SBOM e bonus — falha aqui nao deve derrubar o scan inteiro.
+                    LogUtils.warn("Falha ao gerar SBOM CycloneDX (scan segue): " + sbomEx.getMessage());
+                }
 
                 // Captura severidade pior + total de CVEs + sugestoes de fix (pom snippets).
                 Severity.Level worst = Severity.worstOf(engine);
@@ -132,6 +151,29 @@ public class DependencyCheckRunner {
         }
 
         return reportHtml;
+    }
+
+    /**
+     * Localiza o arquivo CycloneDX gerado pela Engine no workDir.
+     * O nome varia entre versoes do dependency-check (ja vimos
+     * {@code dependency-check-report.cyclonedx.json}, {@code bom.json},
+     * etc.), entao buscamos por pattern em vez de assumir um nome fixo.
+     */
+    private Path locateSbom(Path workDir) {
+        try (var stream = Files.list(workDir)) {
+            return stream
+                .filter(Files::isRegularFile)
+                .filter(p -> {
+                    String name = p.getFileName().toString().toLowerCase(Locale.ROOT);
+                    if (!name.endsWith(".json")) return false;
+                    return name.contains("cyclonedx") || name.contains("bom");
+                })
+                .findFirst()
+                .orElse(null);
+        } catch (Exception e) {
+            LogUtils.debug("Falha ao listar workDir para SBOM: " + e);
+            return null;
+        }
     }
 
     private void checkCancellation(ScanStatus status) throws InterruptedException {

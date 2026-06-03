@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.UUID;
 
 @WebServlet(name = "StatusServlet", urlPatterns = {"/api/status"})
@@ -44,6 +45,9 @@ public class StatusServlet extends HttpServlet {
         if (status.getState() == ScanStatus.State.COMPLETED) {
             node.put("severity", status.getSeverity().name());
             node.put("vulnerabilityCount", status.getVulnerabilityCount());
+            // Pode ser false se o motor falhou em gerar CycloneDX (caimos no warn em log).
+            node.put("sbomAvailable",
+                status.getSbomPath() != null && Files.exists(status.getSbomPath()));
 
             ArrayNode fixes = node.putArray("fixSuggestions");
             for (FixSuggestion fs : status.getFixSuggestions()) {
