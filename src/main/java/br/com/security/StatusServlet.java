@@ -1,5 +1,6 @@
 package br.com.security;
 
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -39,10 +40,23 @@ public class StatusServlet extends HttpServlet {
         node.put("state", status.getState().name());
         node.put("message", status.getMessage());
         node.put("progress", status.getProgress());
-        // Soh inclui resultado de severidade quando ja finalizou
+        // Soh inclui resultado de severidade + fix suggestions quando ja finalizou
         if (status.getState() == ScanStatus.State.COMPLETED) {
             node.put("severity", status.getSeverity().name());
             node.put("vulnerabilityCount", status.getVulnerabilityCount());
+
+            ArrayNode fixes = node.putArray("fixSuggestions");
+            for (FixSuggestion fs : status.getFixSuggestions()) {
+                ObjectNode f = fixes.addObject();
+                f.put("groupId", fs.groupId);
+                f.put("artifactId", fs.artifactId);
+                f.put("currentVersion", fs.currentVersion);
+                f.put("fixedVersion", fs.fixedVersion);
+                f.put("severity", fs.severity.name());
+                ArrayNode cves = f.putArray("cves");
+                for (String c : fs.cves) cves.add(c);
+                f.put("pomSnippet", fs.pomSnippet);
+            }
         }
         JsonResponse.write(response, HttpServletResponse.SC_OK, node);
     }

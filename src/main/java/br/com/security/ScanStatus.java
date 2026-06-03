@@ -1,6 +1,7 @@
 package br.com.security;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.Future;
 
 public class ScanStatus {
@@ -20,6 +21,7 @@ public class ScanStatus {
     private long finishedAt;
     private Severity.Level severity = Severity.Level.NONE;
     private int vulnerabilityCount;
+    private List<FixSuggestion> fixSuggestions = List.of();
 
     public ScanStatus(Path workDir) {
         this.state = State.QUEUED;
@@ -43,9 +45,12 @@ public class ScanStatus {
 
     public synchronized Severity.Level getSeverity() { return severity; }
     public synchronized int getVulnerabilityCount() { return vulnerabilityCount; }
-    public synchronized void setScanResult(Severity.Level severity, int vulnerabilityCount) {
+    public synchronized List<FixSuggestion> getFixSuggestions() { return fixSuggestions; }
+    public synchronized void setScanResult(Severity.Level severity, int vulnerabilityCount,
+                                            List<FixSuggestion> fixSuggestions) {
         this.severity = severity;
         this.vulnerabilityCount = vulnerabilityCount;
+        this.fixSuggestions = List.copyOf(fixSuggestions);
     }
 
     public boolean isCancelRequested() { return cancelRequested; }

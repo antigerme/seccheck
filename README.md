@@ -120,7 +120,7 @@ Por padrão o build não falha — o objetivo é gerar o relatório para inspeç
 | Método | Rota | Descrição |
 | :--- | :--- | :--- |
 | `POST` | `/api/scan` | Recebe multipart com `file` (`.jar`/`.war`/`.ear`). Retorna `{"scanId": "..."}`. |
-| `GET` | `/api/status?id=<uuid>` | Status atual do scan (`QUEUED`, `RUNNING`, `COMPLETED`, `ERROR`, `CANCELLED`). |
+| `GET` | `/api/status?id=<uuid>` | Status atual do scan (`QUEUED`, `RUNNING`, `COMPLETED`, `ERROR`, `CANCELLED`). Quando `COMPLETED`, inclui `severity`, `vulnerabilityCount` e `fixSuggestions[]` (snippets de `pom.xml` paste-ready para cada artefato vulnerável). |
 | `POST` | `/api/cancel?id=<uuid>` | Cancela o scan (mesmo se já em andamento). |
 | `GET` | `/api/report?id=<uuid>` | Baixa o relatório HTML (force `attachment`, anti-XSS). **Política no-re-download estrita:** o relatório é apagado do servidor após o download (sucesso ou falha de stream). `HEAD` não consome. |
 | `GET` | `/api/health[?strict=true]` | Saúde da aplicação. Com `strict=true` retorna 503 quando degradado. Inclui `version` (resumo do build). |
