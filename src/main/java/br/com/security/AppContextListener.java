@@ -32,6 +32,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class AppContextListener implements ServletContextListener {
 
     private static volatile ExecutorService scanExecutor;
+    // Pool separado e pequeno para as chamadas a Claude API (resumo executivo).
+    // Mantido fora do scanExecutor porque e I/O-bound (rede) e nao deve competir
+    // com os scans, que sao CPU/memoria-bound.
+    private static volatile ExecutorService summaryExecutor;
     private static volatile int poolSize;
     private static volatile int queueCapacity;
 
@@ -50,6 +54,19 @@ public class AppContextListener implements ServletContextListener {
         });
         LogUtils.info("AppContextListener: pool de scans criado (" + poolSize + " threads, " +
             "capacidade da fila: " + queueCapacity + ")");
+
+        AtomicInteger summaryCounter = new AtomicInteger();
+        summaryExecutor = Executors.newFixedThreadPool(getEnvInt("DPCK_SUMMARY_POOL_SIZE", 2), r -> {
+            Thread t = new Thread(r, "dpck-summary-" + summaryCounter.incrementAndGet());
+            t.setDaemon(true);
+            return t;
+        });
+        if (ExecutiveSummaryService.isEnabled()) {
+            LogUtils.info("AppContextListener: resumo executivo ATIVADO (modelo: " +
+                ExecutiveSummaryService.model() + ").");
+        } else {
+            LogUtils.info("AppContextListener: resumo executivo desativado (ANTHROPIC_API_KEY ausente).");
+        }
 
         ScanManager.startCleaner();
         DatabaseUpdater.start();
@@ -74,11 +91,18 @@ public class AppContextListener implements ServletContextListener {
                 scanExecutor.shutdownNow();
             }
         }
+        if (summaryExecutor != null) {
+            summaryExecutor.shutdownNow();
+        }
         LogUtils.info("AppContextListener: aplicacao encerrada.");
     }
 
     public static ExecutorService scanExecutor() {
         return scanExecutor;
+    }
+
+    public static ExecutorService summaryExecutor() {
+        return summaryExecutor;
     }
 
     public static int queueSize() {

@@ -48,6 +48,8 @@ public class StatusServlet extends HttpServlet {
             // Pode ser false se o motor falhou em gerar CycloneDX (caimos no warn em log).
             node.put("sbomAvailable",
                 status.getSbomPath() != null && Files.exists(status.getSbomPath()));
+            // Estado do resumo executivo: a UI usa pra decidir se mostra/poll o painel.
+            node.put("summaryState", status.getSummaryState().name());
 
             ArrayNode fixes = node.putArray("fixSuggestions");
             for (FixSuggestion fs : status.getFixSuggestions()) {

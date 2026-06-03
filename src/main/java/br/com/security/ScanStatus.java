@@ -9,6 +9,15 @@ public class ScanStatus {
         QUEUED, RUNNING, COMPLETED, ERROR, CANCELLED
     }
 
+    /** Estado do resumo executivo gerado via Claude API (feature opcional). */
+    public enum SummaryState {
+        DISABLED,    // ANTHROPIC_API_KEY ausente — feature off
+        PENDING,     // scan concluiu, geracao ainda nao iniciada
+        GENERATING,  // chamada a Claude API em andamento
+        READY,       // resumo disponivel
+        FAILED       // chamada falhou (timeout, erro de API, etc.)
+    }
+
     private State state;
     private String message;
     private int progress;
@@ -23,6 +32,13 @@ public class ScanStatus {
     private Severity.Level severity = Severity.Level.NONE;
     private int vulnerabilityCount;
     private List<FixSuggestion> fixSuggestions = List.of();
+
+    // Resumo executivo (feature opcional via Claude API)
+    private SummaryState summaryState = SummaryState.DISABLED;
+    private String executiveSummary;
+    private long summaryGeneratedAt;
+    // Idioma resolvido no upload (ex.: "pt-BR", "en-US"), usado para gerar o resumo
+    private String langCode = "pt-BR";
 
     public ScanStatus(Path workDir) {
         this.state = State.QUEUED;
@@ -54,6 +70,20 @@ public class ScanStatus {
         this.severity = severity;
         this.vulnerabilityCount = vulnerabilityCount;
         this.fixSuggestions = List.copyOf(fixSuggestions);
+    }
+
+    public synchronized SummaryState getSummaryState() { return summaryState; }
+    public synchronized void setSummaryState(SummaryState s) { this.summaryState = s; }
+    public synchronized String getExecutiveSummary() { return executiveSummary; }
+    public synchronized long getSummaryGeneratedAt() { return summaryGeneratedAt; }
+    public synchronized void setExecutiveSummary(String summary) {
+        this.executiveSummary = summary;
+        this.summaryState = SummaryState.READY;
+        this.summaryGeneratedAt = System.currentTimeMillis();
+    }
+    public synchronized String getLangCode() { return langCode; }
+    public synchronized void setLangCode(String langCode) {
+        if (langCode != null && !langCode.isBlank()) this.langCode = langCode;
     }
 
     public boolean isCancelRequested() { return cancelRequested; }

@@ -47,6 +47,21 @@ A aplicação não possui *hardcodes* e foi desenhada para o princípio do 12-Fa
 | `OSS_INDEX_USER` | Opcional | E-mail da conta do Sonatype OSS Index (caso queira varrer bancos externos além do NVD). | `seguranca@empresa.com` |
 | `OSS_INDEX_PASS` | Opcional | Senha da conta do Sonatype OSS Index. | `SenhaForte` |
 
+### 🤖 Resumo Executivo via Claude API (opcional)
+
+Quando configurada, a aplicação gera um **resumo executivo em linguagem de negócio** de cada scan, via Claude API. O resumo aparece na própria tela de resultado (com botões de copiar/baixar `.txt`) e no endpoint `GET /api/summary`. **A feature é totalmente opcional: sem `ANTHROPIC_API_KEY`, o painel simplesmente não aparece e nada muda.** O idioma é detectado automaticamente (UI → `Accept-Language` → `pt-BR`).
+
+| Variável | Obrigatória | O que faz / Impacto | Exemplo |
+| :--- | :--- | :--- | :--- |
+| `ANTHROPIC_API_KEY` | Opcional | Liga o resumo executivo. Sem ela, a feature fica desligada. O JSON resumido do scan (libs, versões, CVE IDs) é enviado à Anthropic. | `sk-ant-...` |
+| `SECCHECK_SUMMARY_MODEL` | Opcional | Modelo Claude usado. Padrão `claude-sonnet-4-6`. | `claude-haiku-4-5` |
+| `ANTHROPIC_BASE_URL` | Opcional | Override do endpoint da API (proxy/gateway). Padrão `https://api.anthropic.com`. | `https://gw.intranet/anthropic` |
+| `DPCK_SUMMARY_POOL_SIZE` | Opcional | Threads dedicadas às chamadas de resumo. Padrão `2`. | `4` |
+
+> **Privacidade:** o resumo envia metadados de dependências (nomes, versões, CVE IDs) à Anthropic — nunca código-fonte nem o artefato. Se a política da empresa proibir, basta não definir `ANTHROPIC_API_KEY`.
+>
+> **Implementação:** chamada HTTP direta via `java.net.http.HttpClient` + Jackson (zero dependências novas no WAR), com *prompt caching* nas instruções de sistema. Falha na geração (timeout, rate limit, outage) **não afeta o scan** — o relatório principal continua disponível e o painel mostra "indisponível".
+
 ### 🌐 Rede Corporativa e Proxy
 
 Se o servidor ficar isolado sem internet direta, o motor do Dependency-Check precisará saber por onde sair para baixar as atualizações do NVD.
@@ -124,6 +139,7 @@ Por padrão o build não falha — o objetivo é gerar o relatório para inspeç
 | `POST` | `/api/cancel?id=<uuid>` | Cancela o scan (mesmo se já em andamento). |
 | `GET` | `/api/report?id=<uuid>` | Baixa o relatório HTML (force `attachment`, anti-XSS). **Política no-re-download por formato:** o HTML é apagado após o download. O workDir só some quando ambos os formatos (HTML + SBOM) foram consumidos. `HEAD` não consome. |
 | `GET` | `/api/sbom?id=<uuid>` | Baixa o SBOM em **CycloneDX JSON** (`application/vnd.cyclonedx+json`). Útil para pipelines de compliance (EO 14028, NIS2). Mesma política no-re-download do HTML. |
+| `GET` | `/api/summary?id=<uuid>` | Resumo executivo do scan (Claude API). Retorna `{state, summary, model, generatedAt}`. `state` ∈ `DISABLED`/`PENDING`/`GENERATING`/`READY`/`FAILED`. Só ativo com `ANTHROPIC_API_KEY`. |
 | `GET` | `/api/health[?strict=true]` | Saúde da aplicação. Com `strict=true` retorna 503 quando degradado. Inclui `version` (resumo do build). |
 | `GET` | `/api/metrics` | Contadores: uploads, scans, NVD, heap. |
 | `GET` | `/api/version` | Metadados do build lidos do `MANIFEST.MF` (versão, commit, branch, build time). |

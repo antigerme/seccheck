@@ -15,6 +15,8 @@ public final class Metrics {
     public static final AtomicLong scansCompleted = new AtomicLong();
     public static final AtomicLong scansFailed = new AtomicLong();
     public static final AtomicLong scansCancelled = new AtomicLong();
+    public static final AtomicLong summariesGenerated = new AtomicLong();
+    public static final AtomicLong summariesFailed = new AtomicLong();
     public static final AtomicLong nvdUpdatesOk = new AtomicLong();
     public static final AtomicLong nvdUpdatesFailed = new AtomicLong();
 
