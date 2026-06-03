@@ -22,6 +22,7 @@ public class ScanStatus {
     private Severity.Level severity = Severity.Level.NONE;
     private int vulnerabilityCount;
     private List<FixSuggestion> fixSuggestions = List.of();
+    private List<ScanFinding> findings = List.of();
 
     public ScanStatus(Path workDir) {
         this.state = State.QUEUED;
@@ -46,11 +47,14 @@ public class ScanStatus {
     public synchronized Severity.Level getSeverity() { return severity; }
     public synchronized int getVulnerabilityCount() { return vulnerabilityCount; }
     public synchronized List<FixSuggestion> getFixSuggestions() { return fixSuggestions; }
+    public synchronized List<ScanFinding> getFindings() { return findings; }
     public synchronized void setScanResult(Severity.Level severity, int vulnerabilityCount,
-                                            List<FixSuggestion> fixSuggestions) {
+                                            List<FixSuggestion> fixSuggestions,
+                                            List<ScanFinding> findings) {
         this.severity = severity;
         this.vulnerabilityCount = vulnerabilityCount;
         this.fixSuggestions = List.copyOf(fixSuggestions);
+        this.findings = List.copyOf(findings);
     }
 
     public boolean isCancelRequested() { return cancelRequested; }

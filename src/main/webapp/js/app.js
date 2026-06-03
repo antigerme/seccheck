@@ -39,6 +39,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const fixSnippetAll = document.getElementById('fixSnippetAll');
     const copyAllFixesBtn = document.getElementById('copyAllFixesBtn');
 
+    const compareBtn = document.getElementById('compareBtn');
+    const diffPanel = document.getElementById('diffPanel');
+    const diffSummary = document.getElementById('diffSummary');
+    const diffNewCount = document.getElementById('diffNewCount');
+    const diffFixedCount = document.getElementById('diffFixedCount');
+    const diffUnchangedCount = document.getElementById('diffUnchangedCount');
+    const diffNewList = document.getElementById('diffNewList');
+    const diffFixedList = document.getElementById('diffFixedList');
+    const diffNewSection = document.getElementById('diffNewSection');
+    const diffFixedSection = document.getElementById('diffFixedSection');
+    const baselineBanner = document.getElementById('baselineBanner');
+    const baselineBannerLabel = document.getElementById('baselineBannerLabel');
+    const clearBaselineBtn = document.getElementById('clearBaselineBtn');
+
+    // Diff scan: o "baseline" e o resultado do scan anterior que o usuario
+    // marcou como referencia ao clicar em "Comparar com nova versao". Fica em
+    // memoria de sessao apenas — refresh limpa.
+    let baseline = null;          // { fileName, findings: [...] }
+    let currentScanFile = null;   // nome do arquivo do scan corrente
+
     let currentScanId = null;
     let pollTimer = null;
     let pollFailures = 0;
@@ -107,6 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fileInput.files = files;
         fileName.textContent = file.name;
         fileSize.textContent = formatBytes(file.size);
+        currentScanFile = file.name;
         uploadLabel.parentElement.classList.add('hidden');
         fileInfo.classList.remove('hidden');
         submitBtn.classList.remove('hidden');
@@ -116,11 +137,18 @@ document.addEventListener('DOMContentLoaded', () => {
     resetBtn.addEventListener('click', resetForm);
     cancelBtn.addEventListener('click', requestCancel);
 
-    function resetForm() {
+    // resetForm(keepBaseline=false) - quando o usuario clica "Comparar com
+    // nova versao", chamamos com keepBaseline=true (a baseline e definida e
+    // o form e resetado pro proximo upload). Caso contrario, baseline tambem
+    // e descartada.
+    function resetForm(keepBaseline) {
         if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
         currentScanId = null;
+        currentScanFile = null;
         pollFailures = 0;
         clearMood();
+
+        if (!keepBaseline) clearBaseline();
 
         fileInput.value = '';
         clearFormError();
@@ -134,6 +162,8 @@ document.addEventListener('DOMContentLoaded', () => {
         progressBarContainer.classList.add('hidden');
         fixSuggestionsEl.classList.add('hidden');
         fixSuggestionsEl.open = false;
+        diffPanel.classList.add('hidden');
+        diffPanel.open = false;
         loaderSpinner.style.display = 'inline-block';
         statusTitle.style.color = 'var(--text-primary)';
         downloadBtn.style.display = '';
@@ -322,8 +352,94 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderFixSuggestions(statusData && statusData.fixSuggestions);
 
+        // Diff scan: se ha uma baseline guardada de scan anterior, computa
+        // o delta de findings (mesma group:artifact:cve = mesma vuln).
+        const findings = (statusData && statusData.findings) || [];
+        if (baseline && baseline.findings) {
+            renderDiff(baseline, { fileName: currentScanFile, findings });
+        } else {
+            diffPanel.classList.add('hidden');
+        }
+
+        // Guarda este scan como possivel proxima baseline (se o usuario clicar
+        // "Comparar com nova versao"). NAO substitui a baseline existente.
+        window.__lastScan = { fileName: currentScanFile, findings };
+
         actionArea.classList.remove('hidden');
         setStatusIcon('success');
+    }
+
+    function setBaseline(scan) {
+        if (!scan || !scan.findings) return;
+        baseline = scan;
+        baselineBannerLabel.textContent =
+            t('baseline.label').replace('{name}', scan.fileName || '?');
+        baselineBanner.classList.remove('hidden');
+    }
+    function clearBaseline() {
+        baseline = null;
+        baselineBanner.classList.add('hidden');
+        diffPanel.classList.add('hidden');
+        diffPanel.open = false;
+    }
+
+    function findingKey(f) { return f.groupId + ':' + f.artifactId + ':' + f.cveName; }
+
+    function renderDiff(base, cand) {
+        const baseMap = new Map();
+        for (const f of base.findings) baseMap.set(findingKey(f), f);
+        const candMap = new Map();
+        for (const f of cand.findings) candMap.set(findingKey(f), f);
+
+        const newOnes = [];
+        const fixed = [];
+        let unchanged = 0;
+        for (const [k, f] of candMap) {
+            if (baseMap.has(k)) unchanged++;
+            else newOnes.push(f);
+        }
+        for (const [k, f] of baseMap) {
+            if (!candMap.has(k)) fixed.push(f);
+        }
+
+        diffNewCount.textContent = newOnes.length;
+        diffFixedCount.textContent = fixed.length;
+        diffUnchangedCount.textContent = unchanged;
+        diffSummary.textContent = t('diff.summary')
+            .replace('{new}', newOnes.length)
+            .replace('{fixed}', fixed.length)
+            .replace('{unchanged}', unchanged);
+
+        diffNewList.innerHTML = newOnes.map(renderFindingRow).join('');
+        diffFixedList.innerHTML = fixed.map(renderFindingRow).join('');
+        diffNewSection.style.display = newOnes.length === 0 ? 'none' : '';
+        diffFixedSection.style.display = fixed.length === 0 ? 'none' : '';
+
+        diffPanel.classList.remove('hidden');
+        // abre automaticamente se ha algo interessante pra mostrar
+        if (newOnes.length > 0 || fixed.length > 0) diffPanel.open = true;
+    }
+
+    function renderFindingRow(f) {
+        return `
+            <div class="diff-row">
+                <span class="diff-row-coord">${escapeHtml(f.groupId)}:${escapeHtml(f.artifactId)}@${escapeHtml(f.version || '?')}</span>
+                <span class="diff-row-cve">${escapeHtml(f.cveName)}</span>
+                <span class="fix-badge severity-badge-${(f.severity || 'NONE').toLowerCase()}">${escapeHtml(t('severity.' + (f.severity || 'NONE')))}</span>
+            </div>
+        `;
+    }
+
+    if (compareBtn) {
+        compareBtn.addEventListener('click', () => {
+            // Marca o scan recem-concluido como baseline e reseta o form
+            // para o proximo upload. Findings da baseline ficam em memoria.
+            if (window.__lastScan) setBaseline(window.__lastScan);
+            resetForm(true);
+        });
+    }
+    if (clearBaselineBtn) {
+        clearBaselineBtn.addEventListener('click', clearBaseline);
     }
 
     function escapeHtml(s) {
@@ -393,6 +509,7 @@ document.addEventListener('DOMContentLoaded', () => {
         progressBarContainer.classList.add('hidden');
         cancelBtn.classList.add('hidden');
         fixSuggestionsEl.classList.add('hidden');
+        diffPanel.classList.add('hidden');
         statusTitle.textContent = t('status.error');
         statusTitle.style.color = 'var(--danger)';
         statusMessage.textContent = msg;
@@ -410,6 +527,7 @@ document.addEventListener('DOMContentLoaded', () => {
         progressBarContainer.classList.add('hidden');
         cancelBtn.classList.add('hidden');
         fixSuggestionsEl.classList.add('hidden');
+        diffPanel.classList.add('hidden');
         statusTitle.textContent = t('status.cancelled');
         statusTitle.style.color = 'var(--text-secondary)';
         statusMessage.textContent = msg || t('status.cancelledDetail');
