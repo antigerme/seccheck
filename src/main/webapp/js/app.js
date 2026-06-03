@@ -121,6 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fileInput.files = files;
         fileName.textContent = file.name;
         fileSize.textContent = formatBytes(file.size);
+        currentScanFile = file.name;
         uploadLabel.parentElement.classList.add('hidden');
         fileInfo.classList.remove('hidden');
         submitBtn.classList.remove('hidden');
@@ -130,12 +131,19 @@ document.addEventListener('DOMContentLoaded', () => {
     resetBtn.addEventListener('click', resetForm);
     cancelBtn.addEventListener('click', requestCancel);
 
-    function resetForm() {
+    // resetForm(keepBaseline=false) - quando o usuario clica "Comparar com
+    // nova versao", chamamos com keepBaseline=true (a baseline e definida e
+    // o form e resetado pro proximo upload). Caso contrario, baseline tambem
+    // e descartada.
+    function resetForm(keepBaseline) {
         if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
         if (summaryPollTimer) { clearTimeout(summaryPollTimer); summaryPollTimer = null; }
         currentScanId = null;
+        currentScanFile = null;
         pollFailures = 0;
         clearMood();
+
+        if (!keepBaseline) clearBaseline();
 
         fileInput.value = '';
         clearFormError();
