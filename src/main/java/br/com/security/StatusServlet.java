@@ -39,6 +39,11 @@ public class StatusServlet extends HttpServlet {
         node.put("state", status.getState().name());
         node.put("message", status.getMessage());
         node.put("progress", status.getProgress());
+        // Soh inclui resultado de severidade quando ja finalizou
+        if (status.getState() == ScanStatus.State.COMPLETED) {
+            node.put("severity", status.getSeverity().name());
+            node.put("vulnerabilityCount", status.getVulnerabilityCount());
+        }
         JsonResponse.write(response, HttpServletResponse.SC_OK, node);
     }
 }

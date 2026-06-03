@@ -18,6 +18,8 @@ public class ScanStatus {
     private final long createdAt;
     private long startedAt;
     private long finishedAt;
+    private Severity.Level severity = Severity.Level.NONE;
+    private int vulnerabilityCount;
 
     public ScanStatus(Path workDir) {
         this.state = State.QUEUED;
@@ -38,6 +40,13 @@ public class ScanStatus {
 
     public synchronized void setTask(Future<?> task) { this.task = task; }
     public synchronized Future<?> getTask() { return task; }
+
+    public synchronized Severity.Level getSeverity() { return severity; }
+    public synchronized int getVulnerabilityCount() { return vulnerabilityCount; }
+    public synchronized void setScanResult(Severity.Level severity, int vulnerabilityCount) {
+        this.severity = severity;
+        this.vulnerabilityCount = vulnerabilityCount;
+    }
 
     public boolean isCancelRequested() { return cancelRequested; }
     public void requestCancel() { this.cancelRequested = true; }

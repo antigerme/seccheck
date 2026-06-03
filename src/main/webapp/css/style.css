@@ -51,6 +51,8 @@ body {
     filter: blur(80px);
     opacity: 0.5;
     animation: float 10s infinite ease-in-out alternate;
+    /* Mood transition: as cores das blobs mudam conforme a severidade do scan */
+    transition: background 1.2s ease, opacity 1.2s ease;
 }
 
 .blob-1 {
@@ -73,6 +75,42 @@ body {
 @keyframes float {
     0% { transform: translate(0, 0) scale(1); }
     100% { transform: translate(50px, 50px) scale(1.1); }
+}
+
+@keyframes pulse-glow {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 0.85; }
+}
+
+/* === Mood blobs: refletem visualmente a pior severidade do scan === */
+/* As classes sao aplicadas em <body> pelo app.js quando o scan termina. */
+
+/* NONE (limpo): verde, ritmo calmo */
+body.severity-none .blob-1 { background: #10b981; }
+body.severity-none .blob-2 { background: #34d399; }
+body.severity-none .blob { animation-duration: 14s; }
+
+/* LOW: âmbar claro, ritmo default */
+body.severity-low .blob-1 { background: #fbbf24; }
+body.severity-low .blob-2 { background: #fcd34d; }
+
+/* MEDIUM: âmbar escuro, ritmo default */
+body.severity-medium .blob-1 { background: #f59e0b; }
+body.severity-medium .blob-2 { background: #f97316; }
+
+/* HIGH: laranja escuro, mais rápido + brilho pulsante */
+body.severity-high .blob-1 { background: #ea580c; }
+body.severity-high .blob-2 { background: #dc2626; }
+body.severity-high .blob {
+    animation: float 7s infinite ease-in-out alternate, pulse-glow 3.5s infinite ease-in-out;
+}
+
+/* CRITICAL: vermelho frenético, pulse rápido */
+body.severity-critical .blob-1 { background: #dc2626; }
+body.severity-critical .blob-2 { background: #ef4444; }
+body.severity-critical .blob {
+    opacity: 0.65;
+    animation: float 4s infinite ease-in-out alternate, pulse-glow 1.4s infinite ease-in-out;
 }
 
 /* Main Container */

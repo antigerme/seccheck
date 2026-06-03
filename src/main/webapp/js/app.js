@@ -33,6 +33,15 @@ document.addEventListener('DOMContentLoaded', () => {
     let pollFailures = 0;
     const MAX_POLL_FAILURES = 6;
     const BASE_POLL_INTERVAL_MS = 2000;
+    const SEVERITY_CLASSES = ['severity-none', 'severity-low', 'severity-medium', 'severity-high', 'severity-critical'];
+
+    function applyMood(severity) {
+        document.body.classList.remove(...SEVERITY_CLASSES);
+        if (severity) document.body.classList.add('severity-' + severity.toLowerCase());
+    }
+    function clearMood() {
+        document.body.classList.remove(...SEVERITY_CLASSES);
+    }
 
     // Drag and Drop
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -100,6 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
         currentScanId = null;
         pollFailures = 0;
+        clearMood();
 
         fileInput.value = '';
         clearFormError();
@@ -206,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (typeof status.progress === 'number') updateProgressBar(status.progress);
 
                 if (status.state === 'COMPLETED') {
-                    showSuccess(currentScanId);
+                    showSuccess(currentScanId, status);
                     return;
                 } else if (status.state === 'ERROR') {
                     showError(status.message);
@@ -252,7 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // O polling vai capturar o estado CANCELLED no proximo ciclo.
     }
 
-    function showSuccess(scanId) {
+    function showSuccess(scanId, statusData) {
         if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
         currentScanId = null;
         loaderSpinner.style.display = 'none';
@@ -260,7 +270,20 @@ document.addEventListener('DOMContentLoaded', () => {
         cancelBtn.classList.add('hidden');
         statusTitle.textContent = t('status.completed');
         statusTitle.style.color = 'var(--success)';
-        statusMessage.textContent = t('status.completedDetail');
+
+        // Mood blobs: pinta o fundo conforme a severidade pior do scan.
+        const severity = (statusData && statusData.severity) || 'NONE';
+        const count = (statusData && typeof statusData.vulnerabilityCount === 'number') ? statusData.vulnerabilityCount : 0;
+        applyMood(severity);
+
+        if (severity === 'NONE' || count === 0) {
+            statusMessage.textContent = t('status.cleanDetail');
+        } else {
+            const tpl = t('status.findingsDetail');
+            statusMessage.textContent = tpl
+                .replace('{n}', count)
+                .replace('{sev}', t('severity.' + severity));
+        }
 
         downloadBtn.href = `api/report?id=${scanId}`;
         downloadBtn.classList.remove('btn-downloaded');
