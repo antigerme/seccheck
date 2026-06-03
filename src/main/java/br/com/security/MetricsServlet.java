@@ -30,6 +30,11 @@ public class MetricsServlet extends HttpServlet {
         scans.put("active", ScanManager.activeCount());
         scans.put("avgDurationMs", Metrics.averageScanDurationMs());
 
+        ObjectNode summary = body.putObject("executiveSummary");
+        summary.put("enabled", ExecutiveSummaryService.isEnabled());
+        summary.put("generated", Metrics.summariesGenerated.get());
+        summary.put("failed", Metrics.summariesFailed.get());
+
         ObjectNode nvd = body.putObject("nvd");
         nvd.put("updatesOk", Metrics.nvdUpdatesOk.get());
         nvd.put("updatesFailed", Metrics.nvdUpdatesFailed.get());

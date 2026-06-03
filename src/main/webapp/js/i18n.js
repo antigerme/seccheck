@@ -30,14 +30,13 @@
             "fix.hint": "Cole no <code>&lt;dependencies&gt;</code> do <code>pom.xml</code> vulneravel. O Maven aplica \"nearest wins\" e sobrescreve a transitiva problematica.",
             "fix.copyAll": "Copiar tudo",
             "fix.copied": "Copiado!",
-            "submit.compare": "Comparar com nova versao",
-            "baseline.label": "Baseline: {name}",
-            "diff.summary": "Diff: +{new} novas, -{fixed} corrigidas, ={unchanged} mantidas",
-            "diff.new": "novas",
-            "diff.fixed": "corrigidas",
-            "diff.unchanged": "mantidas",
-            "diff.newHeader": "Novas vulnerabilidades",
-            "diff.fixedHeader": "Vulnerabilidades corrigidas",
+            "summary.title": "Resumo Executivo",
+            "summary.generating": "Gerando resumo executivo com IA...",
+            "summary.failed": "Nao foi possivel gerar o resumo executivo.",
+            "summary.copy": "Copiar texto",
+            "summary.copied": "Copiado!",
+            "summary.download": "Salvar .txt",
+            "summary.disclaimer": "Gerado por IA — valide CVEs criticas manualmente antes de decisoes.",
             "status.cancelled": "Varredura cancelada.",
             "status.cancelledDetail": "Voce interrompeu a analise.",
             "status.error": "Erro na Varredura",
@@ -76,14 +75,13 @@
             "fix.hint": "Paste into the <code>&lt;dependencies&gt;</code> of the vulnerable <code>pom.xml</code>. Maven's \"nearest wins\" rule will override the problematic transitive.",
             "fix.copyAll": "Copy all",
             "fix.copied": "Copied!",
-            "submit.compare": "Compare with new version",
-            "baseline.label": "Baseline: {name}",
-            "diff.summary": "Diff: +{new} new, -{fixed} fixed, ={unchanged} unchanged",
-            "diff.new": "new",
-            "diff.fixed": "fixed",
-            "diff.unchanged": "unchanged",
-            "diff.newHeader": "New vulnerabilities",
-            "diff.fixedHeader": "Fixed vulnerabilities",
+            "summary.title": "Executive Summary",
+            "summary.generating": "Generating executive summary with AI...",
+            "summary.failed": "Could not generate the executive summary.",
+            "summary.copy": "Copy text",
+            "summary.copied": "Copied!",
+            "summary.download": "Save .txt",
+            "summary.disclaimer": "AI-generated — verify critical CVEs manually before deciding.",
             "status.cancelled": "Scan cancelled.",
             "status.cancelledDetail": "You interrupted the analysis.",
             "status.error": "Scan Error",
@@ -115,4 +113,7 @@
     window.t = function (key) {
         return (MESSAGES[LANG] && MESSAGES[LANG][key]) || (MESSAGES["pt-BR"][key]) || key;
     };
+
+    // Exposto para o app.js enviar ao backend (resumo executivo no idioma certo).
+    window.currentLang = LANG;
 })();

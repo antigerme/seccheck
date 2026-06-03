@@ -40,29 +40,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const fixSnippetAll = document.getElementById('fixSnippetAll');
     const copyAllFixesBtn = document.getElementById('copyAllFixesBtn');
 
-    const compareBtn = document.getElementById('compareBtn');
-    const diffPanel = document.getElementById('diffPanel');
-    const diffSummary = document.getElementById('diffSummary');
-    const diffNewCount = document.getElementById('diffNewCount');
-    const diffFixedCount = document.getElementById('diffFixedCount');
-    const diffUnchangedCount = document.getElementById('diffUnchangedCount');
-    const diffNewList = document.getElementById('diffNewList');
-    const diffFixedList = document.getElementById('diffFixedList');
-    const diffNewSection = document.getElementById('diffNewSection');
-    const diffFixedSection = document.getElementById('diffFixedSection');
-    const baselineBanner = document.getElementById('baselineBanner');
-    const baselineBannerLabel = document.getElementById('baselineBannerLabel');
-    const clearBaselineBtn = document.getElementById('clearBaselineBtn');
-
-    // Diff scan: o "baseline" e o resultado do scan anterior que o usuario
-    // marcou como referencia ao clicar em "Comparar com nova versao". Fica em
-    // memoria de sessao apenas — refresh limpa.
-    let baseline = null;          // { fileName, findings: [...] }
-    let currentScanFile = null;   // nome do arquivo do scan corrente
+    const summaryPanel = document.getElementById('summaryPanel');
+    const summaryBadge = document.getElementById('summaryBadge');
+    const summaryGenerating = document.getElementById('summaryGenerating');
+    const summaryText = document.getElementById('summaryText');
+    const summaryError = document.getElementById('summaryError');
+    const summaryActions = document.getElementById('summaryActions');
+    const summaryDisclaimer = document.getElementById('summaryDisclaimer');
+    const copySummaryBtn = document.getElementById('copySummaryBtn');
+    const downloadSummaryBtn = document.getElementById('downloadSummaryBtn');
 
     let currentScanId = null;
     let pollTimer = null;
     let pollFailures = 0;
+    let summaryPollTimer = null;
+    let summaryPollAttempts = 0;
+    const MAX_SUMMARY_POLLS = 30; // ~60s a 2s/poll
     const MAX_POLL_FAILURES = 6;
     const BASE_POLL_INTERVAL_MS = 2000;
     const SEVERITY_CLASSES = ['severity-none', 'severity-low', 'severity-medium', 'severity-high', 'severity-critical'];
@@ -144,6 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // e descartada.
     function resetForm(keepBaseline) {
         if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+        if (summaryPollTimer) { clearTimeout(summaryPollTimer); summaryPollTimer = null; }
         currentScanId = null;
         currentScanFile = null;
         pollFailures = 0;
@@ -163,8 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
         progressBarContainer.classList.add('hidden');
         fixSuggestionsEl.classList.add('hidden');
         fixSuggestionsEl.open = false;
-        diffPanel.classList.add('hidden');
-        diffPanel.open = false;
+        summaryPanel.classList.add('hidden');
         loaderSpinner.style.display = 'inline-block';
         statusTitle.style.color = 'var(--text-primary)';
         downloadBtn.style.display = '';
@@ -236,7 +229,9 @@ document.addEventListener('DOMContentLoaded', () => {
         xhr.addEventListener('error', () => showError(t('status.communicationError')));
         xhr.addEventListener('timeout', () => showError(t('status.timeout')));
 
-        xhr.open('POST', 'api/scan');
+        // Passa o idioma resolvido pelo i18n para o resumo executivo sair no mesmo idioma da UI.
+        const lang = window.currentLang || 'pt-BR';
+        xhr.open('POST', 'api/scan?lang=' + encodeURIComponent(lang));
         xhr.timeout = 600000;
         xhr.send(formData);
     });
@@ -374,94 +369,121 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderFixSuggestions(statusData && statusData.fixSuggestions);
 
-        // Diff scan: se ha uma baseline guardada de scan anterior, computa
-        // o delta de findings (mesma group:artifact:cve = mesma vuln).
-        const findings = (statusData && statusData.findings) || [];
-        if (baseline && baseline.findings) {
-            renderDiff(baseline, { fileName: currentScanFile, findings });
+        // Resumo executivo: se a feature esta ligada (summaryState != DISABLED),
+        // mostra o painel e inicia o polling de /api/summary.
+        const summaryState = statusData && statusData.summaryState;
+        if (summaryState && summaryState !== 'DISABLED') {
+            startSummaryPanel(scanId, summaryState);
         } else {
-            diffPanel.classList.add('hidden');
+            summaryPanel.classList.add('hidden');
         }
-
-        // Guarda este scan como possivel proxima baseline (se o usuario clicar
-        // "Comparar com nova versao"). NAO substitui a baseline existente.
-        window.__lastScan = { fileName: currentScanFile, findings };
 
         actionArea.classList.remove('hidden');
         setStatusIcon('success');
     }
 
-    function setBaseline(scan) {
-        if (!scan || !scan.findings) return;
-        baseline = scan;
-        baselineBannerLabel.textContent =
-            t('baseline.label').replace('{name}', scan.fileName || '?');
-        baselineBanner.classList.remove('hidden');
-    }
-    function clearBaseline() {
-        baseline = null;
-        baselineBanner.classList.add('hidden');
-        diffPanel.classList.add('hidden');
-        diffPanel.open = false;
-    }
+    // === Resumo executivo (Claude API) ===
+    function startSummaryPanel(scanId, initialState) {
+        summaryPanel.classList.remove('hidden');
+        summaryText.classList.add('hidden');
+        summaryError.classList.add('hidden');
+        summaryActions.classList.add('hidden');
+        summaryDisclaimer.classList.add('hidden');
+        summaryGenerating.classList.remove('hidden');
+        summaryBadge.textContent = '';
+        summaryPollAttempts = 0;
 
-    function findingKey(f) { return f.groupId + ':' + f.artifactId + ':' + f.cveName; }
-
-    function renderDiff(base, cand) {
-        const baseMap = new Map();
-        for (const f of base.findings) baseMap.set(findingKey(f), f);
-        const candMap = new Map();
-        for (const f of cand.findings) candMap.set(findingKey(f), f);
-
-        const newOnes = [];
-        const fixed = [];
-        let unchanged = 0;
-        for (const [k, f] of candMap) {
-            if (baseMap.has(k)) unchanged++;
-            else newOnes.push(f);
+        if (initialState === 'READY') {
+            // raro: ja pronto no primeiro status
+            fetchSummaryOnce(scanId);
+        } else if (initialState === 'FAILED') {
+            renderSummaryFailed();
+        } else {
+            scheduleSummaryPoll(scanId);
         }
-        for (const [k, f] of baseMap) {
-            if (!candMap.has(k)) fixed.push(f);
+    }
+
+    function scheduleSummaryPoll(scanId) {
+        summaryPollTimer = setTimeout(() => fetchSummaryOnce(scanId), BASE_POLL_INTERVAL_MS);
+    }
+
+    async function fetchSummaryOnce(scanId) {
+        summaryPollAttempts++;
+        try {
+            const resp = await fetch(`api/summary?id=${scanId}`);
+            if (!resp.ok) {
+                // 404 = scan ja foi removido (download concluido); para de tentar.
+                renderSummaryFailed();
+                return;
+            }
+            const data = await resp.json();
+            if (data.state === 'READY') {
+                renderSummaryReady(data.summary, data.model);
+            } else if (data.state === 'FAILED' || data.state === 'DISABLED') {
+                renderSummaryFailed();
+            } else if (summaryPollAttempts >= MAX_SUMMARY_POLLS) {
+                renderSummaryFailed();
+            } else {
+                scheduleSummaryPoll(scanId); // PENDING / GENERATING
+            }
+        } catch (e) {
+            if (summaryPollAttempts >= MAX_SUMMARY_POLLS) {
+                renderSummaryFailed();
+            } else {
+                scheduleSummaryPoll(scanId);
+            }
         }
-
-        diffNewCount.textContent = newOnes.length;
-        diffFixedCount.textContent = fixed.length;
-        diffUnchangedCount.textContent = unchanged;
-        diffSummary.textContent = t('diff.summary')
-            .replace('{new}', newOnes.length)
-            .replace('{fixed}', fixed.length)
-            .replace('{unchanged}', unchanged);
-
-        diffNewList.innerHTML = newOnes.map(renderFindingRow).join('');
-        diffFixedList.innerHTML = fixed.map(renderFindingRow).join('');
-        diffNewSection.style.display = newOnes.length === 0 ? 'none' : '';
-        diffFixedSection.style.display = fixed.length === 0 ? 'none' : '';
-
-        diffPanel.classList.remove('hidden');
-        // abre automaticamente se ha algo interessante pra mostrar
-        if (newOnes.length > 0 || fixed.length > 0) diffPanel.open = true;
     }
 
-    function renderFindingRow(f) {
-        return `
-            <div class="diff-row">
-                <span class="diff-row-coord">${escapeHtml(f.groupId)}:${escapeHtml(f.artifactId)}@${escapeHtml(f.version || '?')}</span>
-                <span class="diff-row-cve">${escapeHtml(f.cveName)}</span>
-                <span class="fix-badge severity-badge-${(f.severity || 'NONE').toLowerCase()}">${escapeHtml(t('severity.' + (f.severity || 'NONE')))}</span>
-            </div>
-        `;
+    function renderSummaryReady(text, model) {
+        if (summaryPollTimer) { clearTimeout(summaryPollTimer); summaryPollTimer = null; }
+        summaryGenerating.classList.add('hidden');
+        summaryError.classList.add('hidden');
+        summaryText.textContent = text || '';
+        summaryText.classList.remove('hidden');
+        summaryActions.classList.remove('hidden');
+        summaryDisclaimer.classList.remove('hidden');
+        summaryBadge.textContent = model || '';
     }
 
-    if (compareBtn) {
-        compareBtn.addEventListener('click', () => {
-            // Marca o scan recem-concluido como baseline e reseta o form
-            // para o proximo upload. Findings da baseline ficam em memoria.
-            if (window.__lastScan) setBaseline(window.__lastScan);
-            resetForm(true);
+    function renderSummaryFailed() {
+        if (summaryPollTimer) { clearTimeout(summaryPollTimer); summaryPollTimer = null; }
+        summaryGenerating.classList.add('hidden');
+        summaryText.classList.add('hidden');
+        summaryActions.classList.add('hidden');
+        summaryDisclaimer.classList.add('hidden');
+        summaryError.classList.remove('hidden');
+        summaryBadge.textContent = '';
+    }
+
+    if (copySummaryBtn) {
+        copySummaryBtn.addEventListener('click', async () => {
+            const text = summaryText.textContent;
+            if (!text) return;
+            try {
+                await navigator.clipboard.writeText(text);
+                const old = copySummaryBtn.textContent;
+                copySummaryBtn.textContent = t('summary.copied');
+                setTimeout(() => copySummaryBtn.textContent = old, 1500);
+            } catch (e) {
+                console.warn('Falha ao copiar resumo', e);
+            }
         });
     }
-    if (clearBaselineBtn) {
-        clearBaselineBtn.addEventListener('click', clearBaseline);
+    if (downloadSummaryBtn) {
+        downloadSummaryBtn.addEventListener('click', () => {
+            const text = summaryText.textContent;
+            if (!text) return;
+            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'seccheck-resumo.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
     }
 
     function escapeHtml(s) {
@@ -531,7 +553,7 @@ document.addEventListener('DOMContentLoaded', () => {
         progressBarContainer.classList.add('hidden');
         cancelBtn.classList.add('hidden');
         fixSuggestionsEl.classList.add('hidden');
-        diffPanel.classList.add('hidden');
+        summaryPanel.classList.add('hidden');
         statusTitle.textContent = t('status.error');
         statusTitle.style.color = 'var(--danger)';
         statusMessage.textContent = msg;
@@ -550,7 +572,7 @@ document.addEventListener('DOMContentLoaded', () => {
         progressBarContainer.classList.add('hidden');
         cancelBtn.classList.add('hidden');
         fixSuggestionsEl.classList.add('hidden');
-        diffPanel.classList.add('hidden');
+        summaryPanel.classList.add('hidden');
         statusTitle.textContent = t('status.cancelled');
         statusTitle.style.color = 'var(--text-secondary)';
         statusMessage.textContent = msg || t('status.cancelledDetail');

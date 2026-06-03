@@ -61,33 +61,24 @@
                 <h3 id="statusTitle" data-i18n="status.sending">Enviando arquivo...</h3>
                 <p id="statusMessage" data-i18n="status.sendingDetail">Aguarde, conectando ao servidor.</p>
 
-                <div id="baselineBanner" class="baseline-banner hidden">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                    <span id="baselineBannerLabel">Comparando com baseline</span>
-                    <button type="button" id="clearBaselineBtn" class="btn-icon" aria-label="Limpar baseline">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                    </button>
-                </div>
-
-                <details id="diffPanel" class="diff-panel hidden">
-                    <summary>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg>
-                        <span id="diffSummary">Diff</span>
-                    </summary>
-                    <div class="diff-counts">
-                        <div class="diff-count diff-count-new"><span class="diff-num" id="diffNewCount">0</span><span data-i18n="diff.new">novas</span></div>
-                        <div class="diff-count diff-count-fixed"><span class="diff-num" id="diffFixedCount">0</span><span data-i18n="diff.fixed">corrigidas</span></div>
-                        <div class="diff-count diff-count-unchanged"><span class="diff-num" id="diffUnchangedCount">0</span><span data-i18n="diff.unchanged">mantidas</span></div>
+                <section id="summaryPanel" class="summary-panel hidden">
+                    <div class="summary-head">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></svg>
+                        <span data-i18n="summary.title">Resumo Executivo</span>
+                        <span id="summaryBadge" class="summary-badge"></span>
                     </div>
-                    <div class="diff-section" id="diffNewSection">
-                        <h4 data-i18n="diff.newHeader">Novas vulnerabilidades</h4>
-                        <div class="diff-list" id="diffNewList"></div>
+                    <div id="summaryGenerating" class="summary-generating">
+                        <span class="summary-spinner"></span>
+                        <span data-i18n="summary.generating">Gerando resumo executivo com IA...</span>
                     </div>
-                    <div class="diff-section" id="diffFixedSection">
-                        <h4 data-i18n="diff.fixedHeader">Vulnerabilidades corrigidas</h4>
-                        <div class="diff-list" id="diffFixedList"></div>
+                    <p id="summaryText" class="summary-text hidden"></p>
+                    <p id="summaryError" class="summary-error hidden" data-i18n="summary.failed">Nao foi possivel gerar o resumo executivo.</p>
+                    <div id="summaryActions" class="summary-actions hidden">
+                        <button type="button" id="copySummaryBtn" class="btn-outline btn-small" data-i18n="summary.copy">Copiar texto</button>
+                        <button type="button" id="downloadSummaryBtn" class="btn-outline btn-small" data-i18n="summary.download">Salvar .txt</button>
                     </div>
-                </details>
+                    <p id="summaryDisclaimer" class="summary-disclaimer hidden" data-i18n="summary.disclaimer">Gerado por IA — valide CVEs criticas manualmente antes de decisoes.</p>
+                </section>
 
                 <details id="fixSuggestions" class="fix-suggestions hidden">
                     <summary>

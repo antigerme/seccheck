@@ -137,6 +137,12 @@ public class UploadServlet extends HttpServlet {
         }
 
         ScanStatus status = new ScanStatus(tempDir);
+        // Idioma para o resumo executivo: ?lang= (vindo do i18n da UI) tem prioridade,
+        // senao Accept-Language do browser, senao o padrao pt-BR do ScanStatus.
+        status.setLangCode(resolveLang(request));
+        if (ExecutiveSummaryService.isEnabled()) {
+            status.setSummaryState(ScanStatus.SummaryState.PENDING);
+        }
         ScanManager.put(scanId, status);
         Metrics.uploadsAccepted.incrementAndGet();
 
@@ -185,6 +191,11 @@ public class UploadServlet extends HttpServlet {
                 status.setCompleted(reportHtml);
                 Metrics.scansCompleted.incrementAndGet();
                 Metrics.totalScanDurationMs.addAndGet(System.currentTimeMillis() - start);
+
+                // Resumo executivo (opcional): dispara em pool separado pra nao
+                // segurar a thread de scan. Trabalha sobre dados ja em memoria
+                // (severity/count/fixSuggestions), entao independe dos arquivos.
+                maybeGenerateSummary(scanId, status);
             } else {
                 status.update(ScanStatus.State.ERROR, "O relatorio HTML nao foi gerado.");
                 Metrics.scansFailed.incrementAndGet();
@@ -199,6 +210,41 @@ public class UploadServlet extends HttpServlet {
             FileUtils.deleteDirectoryRecursively(tempDir);
             Metrics.scansFailed.incrementAndGet();
         }
+    }
+
+    /** Dispara a geracao do resumo executivo no pool dedicado, se a feature estiver ligada. */
+    private void maybeGenerateSummary(String scanId, ScanStatus status) {
+        if (!ExecutiveSummaryService.isEnabled()) return;
+        status.setSummaryState(ScanStatus.SummaryState.GENERATING);
+        AppContextListener.summaryExecutor().submit(() -> {
+            long t0 = System.currentTimeMillis();
+            try {
+                String summary = ExecutiveSummaryService.generate(
+                    status.getSeverity(), status.getVulnerabilityCount(),
+                    status.getFixSuggestions(), status.getLangCode());
+                status.setExecutiveSummary(summary);
+                Metrics.summariesGenerated.incrementAndGet();
+                LogUtils.info("Resumo executivo do scan " + scanId + " gerado em " +
+                    (System.currentTimeMillis() - t0) + "ms.");
+            } catch (Exception e) {
+                status.setSummaryState(ScanStatus.SummaryState.FAILED);
+                Metrics.summariesFailed.incrementAndGet();
+                LogUtils.warn("Falha ao gerar resumo executivo do scan " + scanId + ": " + e.getMessage());
+            }
+        });
+    }
+
+    /** Resolve o idioma do resumo: ?lang= > Accept-Language > pt-BR. */
+    private static String resolveLang(HttpServletRequest request) {
+        String param = request.getParameter("lang");
+        if (param != null && !param.isBlank()) return param.trim();
+        String header = request.getHeader("Accept-Language");
+        if (header != null && !header.isBlank()) {
+            // pega o primeiro idioma da lista (ex.: "pt-BR,pt;q=0.9,en;q=0.8" -> "pt-BR")
+            String first = header.split(",")[0].trim();
+            if (!first.isBlank()) return first;
+        }
+        return "pt-BR";
     }
 
     @Override
