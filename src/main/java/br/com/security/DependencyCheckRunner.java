@@ -109,31 +109,16 @@ public class DependencyCheckRunner {
                 checkCancellation(status);
                 engine.writeReports("SecCheck Analysis", workDir.toFile(), "HTML", null);
 
-                target[0] = 95;
-                status.updateProgress(88, "Gerando SBOM (CycloneDX)...");
-                checkCancellation(status);
-                try {
-                    engine.writeReports("SecCheck Analysis", workDir.toFile(), "CYCLONEDX", null);
-                    Path sbom = locateSbom(workDir);
-                    if (sbom != null) {
-                        status.setSbomPath(sbom);
-                        LogUtils.info("SBOM CycloneDX gerado: " + sbom.toAbsolutePath());
-                    } else {
-                        LogUtils.warn("Nenhum arquivo SBOM CycloneDX encontrado em " + workDir);
-                    }
-                } catch (Exception sbomEx) {
-                    // SBOM e bonus — falha aqui nao deve derrubar o scan inteiro.
-                    LogUtils.warn("Falha ao gerar SBOM CycloneDX (scan segue): " + sbomEx.getMessage());
-                }
-
-                // Captura severidade pior + total de CVEs + sugestoes de fix (pom snippets).
+                // Captura severidade pior + total de CVEs + sugestoes de fix + findings detalhadas
+                // (estas ultimas alimentam o diff scan no front-end).
                 Severity.Level worst = Severity.worstOf(engine);
                 int totalVulns = 0;
                 for (var dep : engine.getDependencies()) totalVulns += dep.getVulnerabilities().size();
                 var fixes = FixSuggester.suggest(engine);
-                status.setScanResult(worst, totalVulns, fixes);
+                var findings = FindingsExtractor.extract(engine);
+                status.setScanResult(worst, totalVulns, fixes, findings);
                 LogUtils.info("Severidade do scan: " + worst + " (" + totalVulns + " CVE(s) total, " +
-                    fixes.size() + " sugestao(oes) de fix).");
+                    fixes.size() + " sugestao(oes) de fix, " + findings.size() + " finding(s)).");
 
                 status.updateProgress(95, "Finalizando...");
                 LogUtils.info("Relatorio gerado: " + reportHtml.toAbsolutePath());

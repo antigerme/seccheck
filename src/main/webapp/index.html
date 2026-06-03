@@ -61,6 +61,34 @@
                 <h3 id="statusTitle" data-i18n="status.sending">Enviando arquivo...</h3>
                 <p id="statusMessage" data-i18n="status.sendingDetail">Aguarde, conectando ao servidor.</p>
 
+                <div id="baselineBanner" class="baseline-banner hidden">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    <span id="baselineBannerLabel">Comparando com baseline</span>
+                    <button type="button" id="clearBaselineBtn" class="btn-icon" aria-label="Limpar baseline">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+
+                <details id="diffPanel" class="diff-panel hidden">
+                    <summary>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg>
+                        <span id="diffSummary">Diff</span>
+                    </summary>
+                    <div class="diff-counts">
+                        <div class="diff-count diff-count-new"><span class="diff-num" id="diffNewCount">0</span><span data-i18n="diff.new">novas</span></div>
+                        <div class="diff-count diff-count-fixed"><span class="diff-num" id="diffFixedCount">0</span><span data-i18n="diff.fixed">corrigidas</span></div>
+                        <div class="diff-count diff-count-unchanged"><span class="diff-num" id="diffUnchangedCount">0</span><span data-i18n="diff.unchanged">mantidas</span></div>
+                    </div>
+                    <div class="diff-section" id="diffNewSection">
+                        <h4 data-i18n="diff.newHeader">Novas vulnerabilidades</h4>
+                        <div class="diff-list" id="diffNewList"></div>
+                    </div>
+                    <div class="diff-section" id="diffFixedSection">
+                        <h4 data-i18n="diff.fixedHeader">Vulnerabilidades corrigidas</h4>
+                        <div class="diff-list" id="diffFixedList"></div>
+                    </div>
+                </details>
+
                 <details id="fixSuggestions" class="fix-suggestions hidden">
                     <summary>
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"></path><circle cx="12" cy="12" r="10"></circle></svg>
@@ -79,10 +107,7 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                         <span data-i18n="submit.download">Baixar Relatorio HTML</span>
                     </a>
-                    <a id="sbomBtn" href="#" class="btn-outline hidden" download="sbom-cyclonedx.json">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-                        <span data-i18n="submit.downloadSbom">Baixar SBOM (CycloneDX)</span>
-                    </a>
+                    <button id="compareBtn" class="btn-outline" data-i18n="submit.compare">Comparar com nova versao</button>
                     <button id="resetBtn" class="btn-outline" data-i18n="submit.reset">Fazer nova varredura</button>
                 </div>
                 <button id="cancelBtn" class="btn-outline cancel-btn hidden" data-i18n="submit.cancel">Cancelar varredura</button>

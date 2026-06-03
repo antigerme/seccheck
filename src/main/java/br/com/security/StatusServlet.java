@@ -61,6 +61,19 @@ public class StatusServlet extends HttpServlet {
                 for (String c : fs.cves) cves.add(c);
                 f.put("pomSnippet", fs.pomSnippet);
             }
+
+            // Findings completas (1 entrada por par dep+CVE). Cliente usa pra computar
+            // o diff scan contra um baseline guardado em memoria/localStorage.
+            ArrayNode findings = node.putArray("findings");
+            for (ScanFinding sf : status.getFindings()) {
+                ObjectNode f = findings.addObject();
+                f.put("groupId", sf.groupId);
+                f.put("artifactId", sf.artifactId);
+                f.put("version", sf.version);
+                f.put("cveName", sf.cveName);
+                f.put("severity", sf.severity.name());
+                f.put("cvssScore", sf.cvssScore);
+            }
         }
         JsonResponse.write(response, HttpServletResponse.SC_OK, node);
     }

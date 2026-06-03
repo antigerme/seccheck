@@ -77,7 +77,8 @@ public final class FixSuggester {
         return out;
     }
 
-    private record MavenCoord(String groupId, String artifactId, String version) {}
+    /** Package-private para reuso em {@link FindingsExtractor}. */
+    record MavenCoord(String groupId, String artifactId, String version) {}
 
     private static final class Aggregate {
         final MavenCoord coord;
@@ -88,7 +89,7 @@ public final class FixSuggester {
         Aggregate(MavenCoord coord) { this.coord = coord; }
     }
 
-    private static MavenCoord extractMavenCoord(Dependency dep) {
+    static MavenCoord extractMavenCoord(Dependency dep) {
         // dep.getSoftwareIdentifiers() retorna Set<Identifier>; Identifier.getValue()
         // devolve o purl em forma canonica (estavel entre versoes do dep-check).
         try {
