@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const loaderSpinner = document.getElementById('loaderSpinner');
     const actionArea = document.getElementById('actionArea');
     const downloadBtn = document.getElementById('downloadBtn');
+    const sbomBtn = document.getElementById('sbomBtn');
     const resetBtn = document.getElementById('resetBtn');
     const cancelBtn = document.getElementById('cancelBtn');
 
@@ -141,6 +142,10 @@ document.addEventListener('DOMContentLoaded', () => {
         downloadBtn.classList.remove('btn-downloaded');
         downloadBtn.classList.add('btn-success');
         downloadBtn.onclick = null;
+        sbomBtn.classList.add('hidden');
+        sbomBtn.classList.remove('btn-downloaded');
+        sbomBtn.style.pointerEvents = '';
+        sbomBtn.onclick = null;
         resetBtn.style.width = '';
 
         updateProgressBar(0);
@@ -320,6 +325,23 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 400);
         };
 
+        // SBOM (CycloneDX): mostra botao se foi gerado pelo motor.
+        if (statusData && statusData.sbomAvailable) {
+            sbomBtn.href = `api/sbom?id=${scanId}`;
+            sbomBtn.classList.remove('hidden');
+            sbomBtn.classList.remove('btn-downloaded');
+            sbomBtn.style.pointerEvents = '';
+            sbomBtn.onclick = function onSbomFirstDownload() {
+                sbomBtn.onclick = null;
+                setTimeout(() => {
+                    sbomBtn.classList.add('btn-downloaded');
+                    sbomBtn.style.pointerEvents = 'none';
+                }, 400);
+            };
+        } else {
+            sbomBtn.classList.add('hidden');
+        }
+
         renderFixSuggestions(statusData && statusData.fixSuggestions);
 
         actionArea.classList.remove('hidden');
@@ -399,6 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         actionArea.classList.remove('hidden');
         downloadBtn.style.display = 'none';
+        sbomBtn.classList.add('hidden');
         resetBtn.style.width = '100%';
         setStatusIcon('error');
     }
@@ -416,6 +439,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         actionArea.classList.remove('hidden');
         downloadBtn.style.display = 'none';
+        sbomBtn.classList.add('hidden');
         resetBtn.style.width = '100%';
         setStatusIcon('cancelled');
     }
