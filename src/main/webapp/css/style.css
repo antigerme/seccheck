@@ -404,6 +404,120 @@ input[type="file"] {
     margin-top: 1rem;
 }
 
+/* === Baseline banner (mostra quando ha um scan marcado como baseline pra diff) === */
+.baseline-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(139, 92, 246, 0.08);
+    border: 1px solid rgba(139, 92, 246, 0.25);
+    color: #c4b5fd;
+    padding: 0.5rem 0.85rem;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    margin: 0.75rem 0;
+}
+.baseline-banner.hidden { display: none; }
+.baseline-banner #baselineBannerLabel {
+    flex: 1;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* === Diff Panel (Diff Scan) === */
+.diff-panel {
+    text-align: left;
+    background: rgba(139, 92, 246, 0.06);
+    border: 1px solid rgba(139, 92, 246, 0.22);
+    border-radius: 14px;
+    padding: 1rem 1.25rem;
+    margin: 0 0 1rem 0;
+}
+.diff-panel.hidden { display: none; }
+.diff-panel > summary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-weight: 600;
+    list-style: none;
+    color: #c4b5fd;
+}
+.diff-panel > summary::-webkit-details-marker { display: none; }
+.diff-panel > summary::after {
+    content: '▾';
+    margin-left: auto;
+    transition: transform 0.2s ease;
+    opacity: 0.7;
+}
+.diff-panel[open] > summary::after { transform: rotate(180deg); }
+
+.diff-counts {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    margin: 0.85rem 0 0.75rem;
+}
+.diff-count {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    padding: 0.5rem 0.3rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+.diff-num {
+    font-size: 1.4rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+.diff-count-new      .diff-num { color: var(--danger); }
+.diff-count-fixed    .diff-num { color: var(--success); }
+.diff-count-unchanged .diff-num { color: var(--text-secondary); }
+
+.diff-section { margin-top: 0.75rem; }
+.diff-section h4 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    margin-bottom: 0.4rem;
+}
+.diff-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    max-height: 240px;
+    overflow-y: auto;
+}
+.diff-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 0.5rem;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    border-radius: 6px;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.78rem;
+}
+.diff-row-coord {
+    font-family: ui-monospace, monospace;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.diff-row-cve {
+    font-family: ui-monospace, monospace;
+    color: var(--text-secondary);
+}
+
 /* === Executive Summary panel === */
 .summary-panel {
     text-align: left;

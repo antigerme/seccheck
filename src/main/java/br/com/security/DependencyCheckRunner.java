@@ -109,6 +109,23 @@ public class DependencyCheckRunner {
                 checkCancellation(status);
                 engine.writeReports("SecCheck Analysis", workDir.toFile(), "HTML", null);
 
+                target[0] = 95;
+                status.updateProgress(88, "Gerando SBOM (CycloneDX)...");
+                checkCancellation(status);
+                try {
+                    engine.writeReports("SecCheck Analysis", workDir.toFile(), "CYCLONEDX", null);
+                    Path sbom = locateSbom(workDir);
+                    if (sbom != null) {
+                        status.setSbomPath(sbom);
+                        LogUtils.info("SBOM CycloneDX gerado: " + sbom.toAbsolutePath());
+                    } else {
+                        LogUtils.warn("Nenhum arquivo SBOM CycloneDX encontrado em " + workDir);
+                    }
+                } catch (Exception sbomEx) {
+                    // SBOM e bonus — falha aqui nao deve derrubar o scan inteiro.
+                    LogUtils.warn("Falha ao gerar SBOM CycloneDX (scan segue): " + sbomEx.getMessage());
+                }
+
                 // Captura severidade pior + total de CVEs + sugestoes de fix + findings detalhadas
                 // (estas ultimas alimentam o diff scan no front-end).
                 Severity.Level worst = Severity.worstOf(engine);
