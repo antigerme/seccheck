@@ -28,10 +28,13 @@
         </dependency>
         <!-- JSON processing -->
         <!-- [SEC] Sempre use versao mais recente do jackson-databind (historico de CVEs graves) -->
+        <!-- Cap em <2.22.0: jackson-databind 2.22.0 foi publicado mas o jackson-core 2.22.0   -->
+        <!-- ainda nao saiu no Maven Central (split release "in flight"). Quando sair, e seguro-->
+        <!-- elevar/remover o teto. Maven resolve para 2.21.x enquanto isso.                   -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>[2.17.0,)</version>
+            <version>[2.17.0,2.22.0)</version>
         </dependency>
         <!-- OWASP Dependency-Check Core -->
         <!-- Range aberto: o Maven sempre vai buscar a versao mais recente disponivel -->
