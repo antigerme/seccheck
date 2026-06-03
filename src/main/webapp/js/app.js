@@ -1,8 +1,13 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Aplica strings traduzidas pelos data-i18n
+    // Aplica strings traduzidas pelos data-i18n (textContent por padrao).
+    // Use data-i18n-html nas tags onde a string contem markup (ex.: <code>).
+    // Como todas as strings vem do nosso proprio i18n.js (nao ha entrada de
+    // usuario), innerHTML aqui e seguro.
     document.querySelectorAll('[data-i18n]').forEach(el => {
-        const key = el.getAttribute('data-i18n');
-        el.textContent = t(key);
+        el.textContent = t(el.getAttribute('data-i18n'));
+    });
+    document.querySelectorAll('[data-i18n-html]').forEach(el => {
+        el.innerHTML = t(el.getAttribute('data-i18n-html'));
     });
 
     const form = document.getElementById('scanForm');
@@ -27,6 +32,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const progressBarContainer = document.getElementById('progressBarContainer');
     const progressBarFill = document.getElementById('progressBarFill');
     const progressText = document.getElementById('progressText');
+
+    const fixSuggestionsEl = document.getElementById('fixSuggestions');
+    const fixSuggestionsLabel = document.getElementById('fixSuggestionsLabel');
+    const fixSuggestionsList = document.getElementById('fixSuggestionsList');
+    const fixSnippetAll = document.getElementById('fixSnippetAll');
+    const copyAllFixesBtn = document.getElementById('copyAllFixesBtn');
 
     let currentScanId = null;
     let pollTimer = null;
@@ -121,6 +132,8 @@ document.addEventListener('DOMContentLoaded', () => {
         actionArea.classList.add('hidden');
         cancelBtn.classList.add('hidden');
         progressBarContainer.classList.add('hidden');
+        fixSuggestionsEl.classList.add('hidden');
+        fixSuggestionsEl.open = false;
         loaderSpinner.style.display = 'inline-block';
         statusTitle.style.color = 'var(--text-primary)';
         downloadBtn.style.display = '';
@@ -307,8 +320,70 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 400);
         };
 
+        renderFixSuggestions(statusData && statusData.fixSuggestions);
+
         actionArea.classList.remove('hidden');
         setStatusIcon('success');
+    }
+
+    function escapeHtml(s) {
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function renderFixSuggestions(suggestions) {
+        fixSuggestionsList.innerHTML = '';
+        fixSnippetAll.textContent = '';
+        if (!suggestions || suggestions.length === 0) {
+            fixSuggestionsEl.classList.add('hidden');
+            return;
+        }
+        fixSuggestionsEl.classList.remove('hidden');
+        fixSuggestionsLabel.textContent =
+            t('fix.summary').replace('{n}', suggestions.length);
+
+        // Snippet combinado (todas as deps em sequencia)
+        fixSnippetAll.textContent = suggestions.map(s => s.pomSnippet).join('\n\n');
+
+        // Lista detalhada com badge de severidade e CVEs
+        for (const s of suggestions) {
+            const card = document.createElement('div');
+            card.className = 'fix-card';
+            card.innerHTML = `
+                <div class="fix-card-head">
+                    <span class="fix-coord">${escapeHtml(s.groupId)}:${escapeHtml(s.artifactId)}</span>
+                    <span class="fix-badge severity-badge-${s.severity.toLowerCase()}">${escapeHtml(t('severity.' + s.severity))}</span>
+                </div>
+                <div class="fix-meta">
+                    <span class="fix-version-change">${escapeHtml(s.currentVersion)} → ${escapeHtml(s.fixedVersion)}</span>
+                    <span class="fix-cves">${s.cves.map(escapeHtml).join(', ')}</span>
+                </div>
+            `;
+            fixSuggestionsList.appendChild(card);
+        }
+    }
+
+    if (copyAllFixesBtn) {
+        copyAllFixesBtn.addEventListener('click', async () => {
+            const text = fixSnippetAll.textContent;
+            if (!text) return;
+            try {
+                await navigator.clipboard.writeText(text);
+                const old = copyAllFixesBtn.textContent;
+                copyAllFixesBtn.textContent = t('fix.copied');
+                setTimeout(() => copyAllFixesBtn.textContent = old, 1500);
+            } catch (e) {
+                // Fallback: selectAll + execCommand (browsers antigos)
+                const range = document.createRange();
+                range.selectNodeContents(fixSnippetAll);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+        });
     }
 
     function showError(msg) {
@@ -317,6 +392,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loaderSpinner.style.display = 'none';
         progressBarContainer.classList.add('hidden');
         cancelBtn.classList.add('hidden');
+        fixSuggestionsEl.classList.add('hidden');
         statusTitle.textContent = t('status.error');
         statusTitle.style.color = 'var(--danger)';
         statusMessage.textContent = msg;
@@ -333,6 +409,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loaderSpinner.style.display = 'none';
         progressBarContainer.classList.add('hidden');
         cancelBtn.classList.add('hidden');
+        fixSuggestionsEl.classList.add('hidden');
         statusTitle.textContent = t('status.cancelled');
         statusTitle.style.color = 'var(--text-secondary)';
         statusMessage.textContent = msg || t('status.cancelledDetail');

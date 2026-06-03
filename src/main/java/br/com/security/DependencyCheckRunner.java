@@ -107,12 +107,14 @@ public class DependencyCheckRunner {
                 checkCancellation(status);
                 engine.writeReports("SecCheck Analysis", workDir.toFile(), "HTML", null);
 
-                // Captura severidade pior + total de CVEs para a UI (mood blobs).
+                // Captura severidade pior + total de CVEs + sugestoes de fix (pom snippets).
                 Severity.Level worst = Severity.worstOf(engine);
                 int totalVulns = 0;
                 for (var dep : engine.getDependencies()) totalVulns += dep.getVulnerabilities().size();
-                status.setScanResult(worst, totalVulns);
-                LogUtils.info("Severidade do scan: " + worst + " (" + totalVulns + " CVE(s) total).");
+                var fixes = FixSuggester.suggest(engine);
+                status.setScanResult(worst, totalVulns, fixes);
+                LogUtils.info("Severidade do scan: " + worst + " (" + totalVulns + " CVE(s) total, " +
+                    fixes.size() + " sugestao(oes) de fix).");
 
                 status.updateProgress(95, "Finalizando...");
                 LogUtils.info("Relatorio gerado: " + reportHtml.toAbsolutePath());
