@@ -59,6 +59,7 @@ public class StatusServlet extends HttpServlet {
                 f.put("currentVersion", fs.currentVersion);
                 f.put("fixedVersion", fs.fixedVersion);
                 f.put("severity", fs.severity.name());
+                f.put("knownExploited", fs.knownExploited);
                 ArrayNode cves = f.putArray("cves");
                 for (String c : fs.cves) cves.add(c);
                 f.put("pomSnippet", fs.pomSnippet);

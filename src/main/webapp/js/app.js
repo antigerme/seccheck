@@ -348,6 +348,18 @@ document.addEventListener('DOMContentLoaded', () => {
             statusMessage.textContent = tpl
                 .replace('{n}', count)
                 .replace('{sev}', t('severity.' + severity));
+
+            // Sufixo KEV: quantas das CVEs do scan estao em exploracao ativa (CISA KEV)?
+            // Computado client-side a partir de findings[] — a API ja expoe knownExploited.
+            const findingsForKev = (statusData && statusData.findings) || [];
+            const kevCount = findingsForKev.filter(f => f.knownExploited).length;
+            if (kevCount > 0) {
+                const span = document.createElement('span');
+                span.className = 'kev-inline';
+                span.title = t('kev.tooltip');
+                span.textContent = t('kev.statusSuffix').replace('{n}', kevCount);
+                statusMessage.appendChild(span);
+            }
         }
 
         downloadBtn.href = `api/report?id=${scanId}`;
@@ -467,10 +479,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderFindingRow(f) {
+        const kev = f.knownExploited
+            ? `<span class="kev-badge" title="${escapeHtml(t('kev.tooltip'))}">${escapeHtml(t('kev.badge'))}</span>`
+            : '';
+        const desc = f.description ? ` title="${escapeHtml(f.description)}"` : '';
         return `
-            <div class="diff-row">
+            <div class="diff-row"${desc}>
                 <span class="diff-row-coord">${escapeHtml(f.groupId)}:${escapeHtml(f.artifactId)}@${escapeHtml(f.version || '?')}</span>
                 <span class="diff-row-cve">${escapeHtml(f.cveName)}</span>
+                ${kev}
                 <span class="fix-badge severity-badge-${(f.severity || 'NONE').toLowerCase()}">${escapeHtml(t('severity.' + (f.severity || 'NONE')))}</span>
             </div>
         `;
@@ -614,13 +631,17 @@ document.addEventListener('DOMContentLoaded', () => {
         // Snippet combinado (todas as deps em sequencia)
         fixSnippetAll.textContent = suggestions.map(s => s.pomSnippet).join('\n\n');
 
-        // Lista detalhada com badge de severidade e CVEs
+        // Lista detalhada com badge de severidade, KEV (se aplicavel) e CVEs
         for (const s of suggestions) {
             const card = document.createElement('div');
             card.className = 'fix-card';
+            const kev = s.knownExploited
+                ? `<span class="kev-badge" title="${escapeHtml(t('kev.tooltip'))}">${escapeHtml(t('kev.badge'))}</span>`
+                : '';
             card.innerHTML = `
                 <div class="fix-card-head">
                     <span class="fix-coord">${escapeHtml(s.groupId)}:${escapeHtml(s.artifactId)}</span>
+                    ${kev}
                     <span class="fix-badge severity-badge-${s.severity.toLowerCase()}">${escapeHtml(t('severity.' + s.severity))}</span>
                 </div>
                 <div class="fix-meta">

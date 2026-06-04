@@ -17,16 +17,20 @@ public final class FixSuggestion {
     public final String fixedVersion;
     public final List<String> cves;
     public final Severity.Level severity;
+    /** True se ao menos uma das CVEs deste artefato esta na CISA KEV. */
+    public final boolean knownExploited;
     public final String pomSnippet;
 
     public FixSuggestion(String groupId, String artifactId, String currentVersion,
-                         String fixedVersion, List<String> cves, Severity.Level severity) {
+                         String fixedVersion, List<String> cves, Severity.Level severity,
+                         boolean knownExploited) {
         this.groupId = groupId;
         this.artifactId = artifactId;
         this.currentVersion = currentVersion;
         this.fixedVersion = fixedVersion;
         this.cves = List.copyOf(cves);
         this.severity = severity;
+        this.knownExploited = knownExploited;
         this.pomSnippet = buildSnippet(groupId, artifactId, fixedVersion, cves);
     }
 
