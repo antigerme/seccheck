@@ -755,6 +755,29 @@ input[type="file"] {
     white-space: nowrap;
 }
 
+/* CISA KEV (exploit ativo) — vermelho mais saturado que o critical pra destacar */
+.kev-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    padding: 0.15rem 0.45rem;
+    border-radius: 99px;
+    white-space: nowrap;
+    background: rgba(220, 38, 38, 0.25);
+    color: #fca5a5;
+    border: 1px solid rgba(220, 38, 38, 0.5);
+}
+/* Variante inline (junto da mensagem de status) — sem uppercase, parece texto natural */
+.kev-inline {
+    margin-left: 0.4rem;
+    color: #fca5a5;
+    font-weight: 600;
+    font-size: 0.88rem;
+}
+
 .severity-badge-low      { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
 .severity-badge-medium   { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
 .severity-badge-high     { background: rgba(234, 88, 12, 0.18);  color: #fb923c; }

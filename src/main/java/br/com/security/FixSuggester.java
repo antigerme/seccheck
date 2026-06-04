@@ -53,13 +53,15 @@ public final class FixSuggester {
                 if (ve != null && compareVersions(ve, agg.fixedVersion) > 0) {
                     agg.fixedVersion = ve;
                 }
-                String name = safeName(v);
-                if (name != null) agg.cves.add(name);
-                double cvss = Severity.extractBaseScore(v);
-                Severity.Level lvl = Severity.Level.ofCvss(cvss);
-                if (lvl.ordinal() > agg.worstSeverity.ordinal()) {
-                    agg.worstSeverity = lvl;
+                // Detalhes via VulnDetails (mesma fonte do SBOM e da API findings[]).
+                VulnDetails details = VulnDetails.from(v);
+                if (details == null) continue;
+                agg.cves.add(details.cveName);
+                if (details.severity.ordinal() > agg.worstSeverity.ordinal()) {
+                    agg.worstSeverity = details.severity;
                 }
+                // CISA KEV: OR-acumulado — true se qualquer CVE deste artefato esta na lista.
+                if (details.knownExploited) agg.knownExploited = true;
             }
         }
 
@@ -72,7 +74,8 @@ public final class FixSuggester {
                 agg.coord.version,
                 agg.fixedVersion,
                 new ArrayList<>(agg.cves),
-                agg.worstSeverity));
+                agg.worstSeverity,
+                agg.knownExploited));
         }
         return out;
     }
@@ -85,6 +88,7 @@ public final class FixSuggester {
         String fixedVersion;
         final TreeSet<String> cves = new TreeSet<>();
         Severity.Level worstSeverity = Severity.Level.NONE;
+        boolean knownExploited;
 
         Aggregate(MavenCoord coord) { this.coord = coord; }
     }
@@ -108,10 +112,28 @@ public final class FixSuggester {
         return null;
     }
 
+    /**
+     * Extrai a versao "fixed in" do CVE. Tenta primeiro o
+     * {@code getMatchedVulnerableSoftware()} (singular — o match exato que
+     * a engine usou); se vazio, percorre {@code getVulnerableSoftware()}
+     * (Set de todas as ranges conhecidas) procurando o maior
+     * {@code versionEndExcluding}.
+     *
+     * Bug historico: a implementacao anterior assumia que getMatched...
+     * devolvia Collection, mas e singular — resultado: 0 sugestoes de fix
+     * pra QUALQUER scan desde o PR #7. Corrigido aqui.
+     */
     private static String extractVersionEndExcluding(Vulnerability v) {
         try {
-            Object list = v.getClass().getMethod("getMatchedVulnerableSoftware").invoke(v);
-            if (list instanceof Collection<?> coll) {
+            // 1) Match singular (mais preciso quando presente)
+            Object matched = v.getClass().getMethod("getMatchedVulnerableSoftware").invoke(v);
+            if (matched != null) {
+                String ve = invokeString(matched, "getVersionEndExcluding");
+                if (ve != null && !ve.isBlank()) return ve;
+            }
+            // 2) Fallback: percorre todas as VulnerableSoftware do CVE
+            Object all = v.getClass().getMethod("getVulnerableSoftware").invoke(v);
+            if (all instanceof Collection<?> coll) {
                 String best = null;
                 for (Object vs : coll) {
                     String ve = invokeString(vs, "getVersionEndExcluding");
@@ -121,14 +143,6 @@ public final class FixSuggester {
             }
         } catch (Exception ignored) {}
         return null;
-    }
-
-    private static String safeName(Vulnerability v) {
-        try {
-            return invokeString(v, "getName");
-        } catch (Exception e) {
-            return null;
-        }
     }
 
     private static String invokeString(Object target, String method) {
