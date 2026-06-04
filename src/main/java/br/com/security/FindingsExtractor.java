@@ -9,9 +9,11 @@ import java.util.List;
 
 /**
  * Extrai a lista plana de {@link ScanFinding}s a partir das vulnerabilidades
- * reportadas pela Engine. Usado pela feature de Diff Scan — o cliente recebe
- * essa lista por scan e computa delta entre dois scans (mesma
- * {@code group:artifact:cveName} = mesma finding).
+ * reportadas pela Engine. Alimenta o Diff Scan e a API /api/status.
+ *
+ * A extracao de cada vulnerabilidade e delegada a {@link VulnDetails}, a mesma
+ * usada pelo {@link CycloneDxBuilder} — garante que a API e o SBOM exponham
+ * exatamente os mesmos dados.
  */
 public final class FindingsExtractor {
 
@@ -24,24 +26,12 @@ public final class FindingsExtractor {
             FixSuggester.MavenCoord coord = FixSuggester.extractMavenCoord(dep);
             if (coord == null) continue;
             for (Vulnerability v : dep.getVulnerabilities()) {
-                String name = safeName(v);
-                if (name == null || name.isBlank()) continue;
-                double score = Severity.extractBaseScore(v);
-                Severity.Level lvl = Severity.Level.ofCvss(score);
+                VulnDetails details = VulnDetails.from(v);
+                if (details == null) continue; // CVE sem nome — ignora
                 out.add(new ScanFinding(
-                    coord.groupId(), coord.artifactId(), coord.version(),
-                    name, lvl, score));
+                    coord.groupId(), coord.artifactId(), coord.version(), details));
             }
         }
         return out;
-    }
-
-    private static String safeName(Vulnerability v) {
-        try {
-            Object res = v.getClass().getMethod("getName").invoke(v);
-            return res == null ? null : res.toString();
-        } catch (Exception e) {
-            return null;
-        }
     }
 }

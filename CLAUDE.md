@@ -42,6 +42,10 @@ o que foi validado manualmente.
   alinha com o motor do dependency-check.
 - **JSON:** todas as respostas saem por `JsonResponse.write` /
   `JsonResponse.writeError`. Nunca concatene strings JSON.
+- **Detalhe de vulnerabilidade:** extraia via `VulnDetails.from(vuln)` — e a
+  UNICA fonte de reflection sobre `Vulnerability` do dep-check. Tanto o SBOM
+  (`CycloneDxBuilder`) quanto a API (`FindingsExtractor`/`/api/status`) usam,
+  garantindo paridade. Nao recrie reflection ad-hoc sobre `Vulnerability`.
 - **Variaveis de ambiente:** leia via `AppContextListener.getEnvInt/getEnvLong`
   para uniformizar parsing e log de erro.
 - **Ciclo de vida:** qualquer recurso global novo (executor, scheduler, cache)
