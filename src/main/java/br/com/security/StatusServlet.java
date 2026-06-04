@@ -65,16 +65,38 @@ public class StatusServlet extends HttpServlet {
             }
 
             // Findings completas (1 entrada por par dep+CVE). Cliente usa pra computar
-            // o diff scan contra um baseline guardado em memoria/localStorage.
+            // o diff scan, e expoe os mesmos detalhes ricos que vao para o SBOM
+            // (paridade SBOM <-> API via VulnDetails): description, cwes, vetor
+            // CVSS, advisories e flag CISA KEV.
             ArrayNode findings = node.putArray("findings");
             for (ScanFinding sf : status.getFindings()) {
+                VulnDetails vd = sf.vuln;
                 ObjectNode f = findings.addObject();
                 f.put("groupId", sf.groupId);
                 f.put("artifactId", sf.artifactId);
                 f.put("version", sf.version);
-                f.put("cveName", sf.cveName);
-                f.put("severity", sf.severity.name());
-                f.put("cvssScore", sf.cvssScore);
+                f.put("cveName", vd.cveName);
+                f.put("severity", vd.severity.name());
+                f.put("cvssScore", vd.cvssScore);
+                if (vd.source != null) f.put("source", vd.source);
+                if (vd.description != null) f.put("description", vd.description);
+                if (vd.cvssVector != null) {
+                    f.put("cvssVector", vd.cvssVector);
+                    f.put("cvssMethod", vd.cvssMethod());
+                }
+                if (!vd.cwes.isEmpty()) {
+                    ArrayNode cwes = f.putArray("cwes");
+                    for (Integer c : vd.cwes) cwes.add(c);
+                }
+                if (!vd.advisories.isEmpty()) {
+                    ArrayNode advisories = f.putArray("advisories");
+                    for (VulnDetails.Advisory adv : vd.advisories) {
+                        ObjectNode a = advisories.addObject();
+                        if (adv.title() != null) a.put("title", adv.title());
+                        a.put("url", adv.url());
+                    }
+                }
+                f.put("knownExploited", vd.knownExploited);
             }
         }
         JsonResponse.write(response, HttpServletResponse.SC_OK, node);

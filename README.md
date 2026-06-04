@@ -135,7 +135,7 @@ Por padrão o build não falha — o objetivo é gerar o relatório para inspeç
 | Método | Rota | Descrição |
 | :--- | :--- | :--- |
 | `POST` | `/api/scan` | Recebe multipart com `file` (`.jar`/`.war`/`.ear`). Retorna `{"scanId": "..."}`. |
-| `GET` | `/api/status?id=<uuid>` | Status atual do scan (`QUEUED`, `RUNNING`, `COMPLETED`, `ERROR`, `CANCELLED`). Quando `COMPLETED`, inclui `severity`, `vulnerabilityCount`, `fixSuggestions[]` (snippets de `pom.xml` paste-ready) e `findings[]` (lista plana de pares `dep+CVE` usada pelo Diff Scan no front-end). |
+| `GET` | `/api/status?id=<uuid>` | Status atual do scan (`QUEUED`, `RUNNING`, `COMPLETED`, `ERROR`, `CANCELLED`). Quando `COMPLETED`, inclui `severity`, `vulnerabilityCount`, `summaryState`, `sbomAvailable`, `fixSuggestions[]` (snippets de `pom.xml` paste-ready) e `findings[]` — ver detalhe do `findings[]` abaixo. |
 | `POST` | `/api/cancel?id=<uuid>` | Cancela o scan (mesmo se já em andamento). |
 | `GET` | `/api/report?id=<uuid>` | Baixa o relatório HTML (force `attachment`, anti-XSS). **Política no-re-download por formato:** o HTML é apagado após o download. O workDir só some quando ambos os formatos (HTML + SBOM) foram consumidos. `HEAD` não consome. |
 | `GET` | `/api/sbom?id=<uuid>` | Baixa o SBOM em **CycloneDX JSON** (`application/vnd.cyclonedx+json`). Útil para pipelines de compliance (EO 14028, NIS2). Mesma política no-re-download do HTML. |
@@ -143,6 +143,32 @@ Por padrão o build não falha — o objetivo é gerar o relatório para inspeç
 | `GET` | `/api/health[?strict=true]` | Saúde da aplicação. Com `strict=true` retorna 503 quando degradado. Inclui `version` (resumo do build). |
 | `GET` | `/api/metrics` | Contadores: uploads, scans, NVD, heap. |
 | `GET` | `/api/version` | Metadados do build lidos do `MANIFEST.MF` (versão, commit, branch, build time). |
+
+### Detalhe das vulnerabilidades (`findings[]` e SBOM)
+
+A API REST e o SBOM CycloneDX expõem **os mesmos detalhes** de cada vulnerabilidade — ambos extraídos de um único ponto (`VulnDetails`), então não divergem. Cada entrada de `findings[]` no `/api/status` (quando `COMPLETED`) traz:
+
+```jsonc
+{
+  "groupId": "org.apache.logging.log4j",
+  "artifactId": "log4j-core",
+  "version": "2.14.1",
+  "cveName": "CVE-2021-44228",
+  "severity": "CRITICAL",            // NONE | LOW | MEDIUM | HIGH | CRITICAL
+  "cvssScore": 10.0,
+  "source": "NVD",                   // ou OSSINDEX, etc. (omitido se desconhecido)
+  "description": "Log4Shell: ...",   // texto da CVE (omitido se ausente)
+  "cvssVector": "CVSS:3.1/AV:N/...", // vetor completo (omitido se ausente)
+  "cvssMethod": "CVSSv31",           // acompanha o vector
+  "cwes": [502, 917],                // classes de fraqueza, como inteiros (omitido se vazio)
+  "advisories": [                    // URLs de referência, dedup (omitido se vazio)
+    { "title": "Advisory", "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-44228" }
+  ],
+  "knownExploited": false            // true = consta na CISA KEV (exploit ativo)
+}
+```
+
+No SBOM CycloneDX 1.6, os mesmos dados aparecem em `vulnerabilities[]` no formato da spec: `description`, `ratings[].{score,severity,method,vector}`, `cwes[]`, `advisories[]`, `affects[].ref` e `properties[]` (`seccheck:cisa-kev=true` quando aplicável).
 
 ---
 
