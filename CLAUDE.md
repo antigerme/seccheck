@@ -4,6 +4,22 @@ Aplicacao web Jakarta EE que executa OWASP Dependency-Check embutido. Upload
 de `.jar/.war/.ear`, scan em background com pool de threads, polling de status
 e download do relatorio HTML.
 
+## Workflow de PR (regra do dono)
+
+Projeto mantido por uma unica pessoa (`andre@felicio.com.br`). Fluxo padrao:
+
+1. Cada feature/fix em uma branch curta cortada do `main` atualizado.
+2. Push -> PR criado pela UI do Claude Code.
+3. Aprovacao + **Squash and merge** (sempre — nao usar "Create a merge commit"
+   nem "Rebase and merge") + apagar a branch remota.
+
+**Antes de cada squash-merge**, garantir que a branch esta atualizada com o
+`main` (botao "Update branch" no PR). Squashes sequenciais de branches stale
+ja causaram perda silenciosa de codigo neste repo (ver PR #11).
+
+Quando cortar uma nova branch, sempre baseie em `origin/main` recem-puxado.
+Nao reutilize branches locais antigas para features novas.
+
 ## Comandos uteis
 
 ```bash
