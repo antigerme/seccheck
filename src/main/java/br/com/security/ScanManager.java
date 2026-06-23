@@ -1,6 +1,5 @@
 package br.com.security;
 
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -54,10 +53,6 @@ public class ScanManager {
 
     public static int activeCount() {
         return scans.size();
-    }
-
-    public static Map<String, ScanStatus> snapshot() {
-        return Map.copyOf(scans);
     }
 
     /**

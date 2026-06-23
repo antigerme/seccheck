@@ -835,3 +835,25 @@ input[type="file"] {
 .hidden {
     display: none !important;
 }
+
+/* === Icones de status (sucesso/erro/cancelado) ===
+   Migrados de style="..." inline para classes, permitindo CSP sem
+   'unsafe-inline'. Injetados antes do #statusTitle pelo app.js. */
+.status-icon {
+    margin-bottom: 1.5rem;
+}
+.status-icon-success   { color: var(--success); }
+.status-icon-error     { color: var(--danger); }
+.status-icon-cancelled { color: var(--text-secondary); }
+
+/* === Paginas de erro (404/500/503) ===
+   Substituem os style="..." inline dos arquivos error/*.html. */
+.error-panel { text-align: center; }
+.error-text {
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+}
+.error-link {
+    display: inline-flex;
+    max-width: 240px;
+}

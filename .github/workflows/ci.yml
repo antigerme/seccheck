@@ -1,0 +1,41 @@
+name: CI
+
+# Roda em PRs para main e em pushes para main. Garante que compila e que a
+# suite de testes (incluindo os de integracao contra a API real do
+# dependency-check) passa antes do merge.
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      # 'mvn verify' = compile + test + package. NAO ativa o profile self-scan
+      # (que precisaria baixar a base NVD); os testes usam a Engine em
+      # EVIDENCE_COLLECTION, sem rede/NVD.
+      - name: Build and test
+        run: mvn -B --no-transfer-progress verify
+
+      - name: Publish test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: target/surefire-reports/
+          if-no-files-found: ignore

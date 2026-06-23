@@ -90,6 +90,24 @@ Se o servidor ficar isolado sem internet direta, o motor do Dependency-Check pre
    /opt/jboss-ews/bin/catalina.sh run
    ```
 
+### Testes e CI
+
+```bash
+mvn test       # suite JUnit 5 (unitarios + integracao)
+mvn verify     # compile + test + package (mesma coisa que o CI roda)
+```
+
+A suite inclui **testes de integracao contra a API real do OWASP
+Dependency-Check** (`*IntegrationTest`): instanciam a `Engine` em modo
+`EVIDENCE_COLLECTION` (sem rede/NVD) e injetam dependencias e vulnerabilidades
+sinteticas, validando a extracao por reflection de `VulnDetails`/`FixSuggester`/
+`CycloneDxBuilder` contra as classes verdadeiras do motor. São eles que pegam
+quebra de API entre versões do dep-check.
+
+CI: `.github/workflows/ci.yml` roda `mvn verify` em todo PR para `main` e em
+pushes para `main` (JDK 21, cache do Maven). O profile `self-scan` **não** roda
+no CI (precisaria baixar a base NVD); os testes não dependem de rede.
+
 ### Metadados do build (versão, git commit)
 
 O `MANIFEST.MF` do WAR final inclui automaticamente `Implementation-Version`,

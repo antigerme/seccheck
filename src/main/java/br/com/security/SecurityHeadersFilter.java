@@ -29,15 +29,21 @@ public class SecurityHeadersFilter implements Filter {
         // [SEC] Força HTTPS por 1 ano (ative somente se o servidor usa SSL/TLS)
         // response.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
 
-        // [SEC] Controle de politica de recursos do browser (CSP)
-        // Como servimos HTML estatico e o relatorio gerado, limitamos ao minimo necessario.
+        // [SEC] Content-Security-Policy endurecida (sem origens externas, sem unsafe-*).
+        // A UI usa stack de fontes do sistema (zero Google Fonts), scripts e estilos
+        // vem so de 'self', e todos os estilos inline foram migrados para classes —
+        // por isso style-src nao precisa mais de 'unsafe-inline'. img-src mantem
+        // 'data:' para os SVGs inline. form-action/base-uri fecham vetores classicos
+        // de XSS (form sequestrado, <base> reroteando caminhos relativos).
         response.setHeader("Content-Security-Policy",
-            "default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; " +
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+            "default-src 'self'; " +
             "script-src 'self'; " +
+            "style-src 'self'; " +
             "img-src 'self' data:; " +
+            "font-src 'self'; " +
             "connect-src 'self'; " +
-            "font-src https://fonts.gstatic.com; " +
+            "form-action 'self'; " +
+            "base-uri 'self'; " +
             "frame-ancestors 'none'");
 
         // [SEC] Controla como o Referer e enviado ao navegar

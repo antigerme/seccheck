@@ -4,7 +4,6 @@ import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
 import jakarta.servlet.annotation.WebListener;
 
-import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -146,14 +145,5 @@ public class AppContextListener implements ServletContextListener {
             LogUtils.warn("Variavel " + name + " com valor invalido (" + val + "). Usando padrao " + defaultValue);
             return defaultValue;
         }
-    }
-
-    /** Conveniencia para resolver caminhos de teste. */
-    public static Path tempRoot() {
-        String envTmp = System.getenv("DPCK_TMP_DIR");
-        if (envTmp != null && !envTmp.isBlank()) {
-            return Path.of(envTmp);
-        }
-        return Path.of(System.getProperty("java.io.tmpdir"));
     }
 }
