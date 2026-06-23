@@ -27,8 +27,6 @@ public class ScanStatus {
     private Future<?> task;
     private volatile boolean cancelRequested;
     private final long createdAt;
-    private long startedAt;
-    private long finishedAt;
     private Severity.Level severity = Severity.Level.NONE;
     private int vulnerabilityCount;
     private List<FixSuggestion> fixSuggestions = List.of();
@@ -57,8 +55,6 @@ public class ScanStatus {
     public synchronized void setSbomPath(Path sbomPath) { this.sbomPath = sbomPath; }
     public synchronized Path getWorkDir() { return workDir; }
     public long getCreatedAt() { return createdAt; }
-    public synchronized long getStartedAt() { return startedAt; }
-    public synchronized long getFinishedAt() { return finishedAt; }
 
     public synchronized void setTask(Future<?> task) { this.task = task; }
     public synchronized Future<?> getTask() { return task; }
@@ -78,6 +74,10 @@ public class ScanStatus {
 
     public synchronized SummaryState getSummaryState() { return summaryState; }
     public synchronized void setSummaryState(SummaryState s) { this.summaryState = s; }
+    /** True enquanto o resumo executivo ainda esta sendo gerado (ou na fila). */
+    public synchronized boolean isSummaryPending() {
+        return summaryState == SummaryState.PENDING || summaryState == SummaryState.GENERATING;
+    }
     public synchronized String getExecutiveSummary() { return executiveSummary; }
     public synchronized long getSummaryGeneratedAt() { return summaryGeneratedAt; }
     public synchronized void setExecutiveSummary(String summary) {
@@ -95,12 +95,6 @@ public class ScanStatus {
 
     public synchronized void update(State state, String message) {
         if (this.state == State.CANCELLED) return;
-        if (state == State.RUNNING && this.startedAt == 0) {
-            this.startedAt = System.currentTimeMillis();
-        }
-        if (state == State.COMPLETED || state == State.ERROR || state == State.CANCELLED) {
-            this.finishedAt = System.currentTimeMillis();
-        }
         this.state = state;
         this.message = message;
     }
@@ -116,13 +110,11 @@ public class ScanStatus {
         this.message = "Relatorio gerado com sucesso!";
         this.progress = 100;
         this.reportPath = reportPath;
-        this.finishedAt = System.currentTimeMillis();
     }
 
     public synchronized void setCancelled() {
         this.state = State.CANCELLED;
         this.message = "Varredura cancelada pelo usuario.";
-        this.finishedAt = System.currentTimeMillis();
     }
 
     public synchronized boolean isFinal() {

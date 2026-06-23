@@ -59,6 +59,19 @@
             <version>[2.0.0,)</version>
         </dependency>
 
+        <!-- ====================== TESTES (scope test) ====================== -->
+        <!-- JUnit 5. Os testes de integracao instanciam a Engine do dep-check  -->
+        <!-- em EVIDENCE_COLLECTION (sem rede/NVD) e injetam Dependency/         -->
+        <!-- Vulnerability sinteticas — validam a reflection de VulnDetails/     -->
+        <!-- FixSuggester/CycloneDxBuilder contra a API REAL do dep-check, que e -->
+        <!-- onde moram os bugs silenciosos (vide versionEndExcluding e CYCLONEDX).-->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.11.4</version>
+            <scope>test</scope>
+        </dependency>
+
         <!-- ============================================================== -->
         <!-- Overrides de versao para deps transitivas com CVE conhecida.   -->
         <!-- Maven aplica "nearest wins": declarar aqui sobrescreve a versao-->
@@ -120,6 +133,13 @@
                         <includeOnlyProperty>git.dirty</includeOnlyProperty>
                     </includeOnlyProperties>
                 </configuration>
+            </plugin>
+
+            <!-- Surefire 3.x roda JUnit 5 nativamente no 'mvn test'/'mvn verify'. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.2</version>
             </plugin>
 
             <plugin>

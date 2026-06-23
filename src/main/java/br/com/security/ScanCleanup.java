@@ -26,11 +26,24 @@ public final class ScanCleanup {
                 LogUtils.warn("Falha ao remover " + consumed + ": " + e.getMessage());
             }
         }
-        if (!hasAnyConsumable(status)) {
-            LogUtils.info("Scan " + scanId + ": todos os formatos foram baixados. Removendo workDir.");
-            FileUtils.deleteDirectoryRecursively(status.getWorkDir());
-            ScanManager.remove(scanId);
+        if (hasAnyConsumable(status)) {
+            return; // ainda ha HTML ou SBOM pra baixar
         }
+
+        // Nenhum arquivo pra baixar: o workDir pode ir embora — o resumo executivo
+        // trabalha sobre dados em memoria (severity/count/fixSuggestions), nao
+        // sobre arquivos. Mas so removemos o scan do ScanManager se o resumo nao
+        // estiver pendente; senao /api/summary daria 404 e perderiamos um resumo
+        // que ja pode ter sido pago a Claude API. O TTL do ScanManager coleta o
+        // scan depois, como rede de seguranca.
+        LogUtils.info("Scan " + scanId + ": todos os formatos foram baixados. Removendo workDir.");
+        FileUtils.deleteDirectoryRecursively(status.getWorkDir());
+
+        if (status.isSummaryPending()) {
+            LogUtils.info("Scan " + scanId + ": mantendo no ScanManager — resumo executivo ainda em geracao.");
+            return;
+        }
+        ScanManager.remove(scanId);
     }
 
     private static boolean hasAnyConsumable(ScanStatus status) {

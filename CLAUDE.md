@@ -23,12 +23,25 @@ Nao reutilize branches locais antigas para features novas.
 ## Comandos uteis
 
 ```bash
-mvn clean package          # gera target/ROOT.war
-mvn verify -Pself-scan     # roda o dependency-check-maven contra o proprio WAR
+mvn clean package          # gera target/ROOT.war (roda os testes)
+mvn test                   # so a suite de testes (JUnit 5)
+mvn verify                 # compile + test + package (o que o CI roda)
+mvn verify -Pself-scan     # alem do acima, escaneia o proprio WAR (precisa NVD)
 ```
 
-Nao ha testes automatizados ainda. Ao tocar logica de negocio, descreva no PR
-o que foi validado manualmente.
+## Testes (`src/test/java/br/com/security/`)
+
+- **Unitarios puros:** `SeverityTest`, `FixSuggesterVersionTest`, `ScanStatusTest`,
+  `ScanManagerTest`, `FileUtilsTest`, `ScanCleanupTest`, `SecurityHeadersFilterTest`.
+- **Integracao contra a API real do dep-check:** `VulnDetailsIntegrationTest`,
+  `FixSuggesterIntegrationTest`, `FindingsAndSeverityIntegrationTest`,
+  `CycloneDxBuilderIntegrationTest`. Usam `TestFixtures.evidenceEngine()` —
+  Engine em `EVIDENCE_COLLECTION` (sem rede/NVD) + `Dependency`/`Vulnerability`
+  sinteticas. Sao eles que pegam quebra silenciosa de reflection (o bug do
+  `versionEndExcluding` ficou latente do PR #7 ao #16 por falta deste teste).
+- Ao mexer em `VulnDetails`/`FixSuggester`/`CycloneDxBuilder`/`Severity`, **rode
+  os testes de integracao** — eles validam a reflection contra o dep-check de
+  verdade. CI (`.github/workflows/ci.yml`) roda `mvn verify` em todo PR.
 
 ## Estrutura
 
@@ -66,9 +79,11 @@ o que foi validado manualmente.
 
 ## Seguranca
 
-- Headers HTTP centralizados em `SecurityHeadersFilter`. CSP atual permite
-  Google Fonts mas a UI ja usa stack de fontes do sistema; e seguro remover
-  esses hosts da CSP no futuro.
+- Headers HTTP centralizados em `SecurityHeadersFilter`. CSP endurecida:
+  so `'self'`, sem `'unsafe-inline'`, sem origens externas, com `form-action`/
+  `base-uri`/`frame-ancestors`. **Nao adicione `style="..."` inline** em HTML/JS
+  (quebra com a CSP) — use classes no `style.css`. `SecurityHeadersFilterTest`
+  trava regressao nesses headers.
 - HSTS esta comentado: ligar somente atras de TLS.
 - Sem autenticacao: assume rede interna. Adicione auth antes de expor
   publicamente.
