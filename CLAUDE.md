@@ -98,3 +98,11 @@ mvn verify -Pself-scan     # alem do acima, escaneia o proprio WAR (precisa NVD)
 - **Cancelamento**: `DependencyCheckRunner` checa `status.isCancelRequested()`
   em pontos chave. Engine do OWASP nao tem cancel proprio — o melhor que
   conseguimos e marcar como cancelado e descartar o resultado.
+- **Resiliencia NVD**: a API publica do NIST e historicamente instavel
+  (503/HTTP2 stream reset). `DependencyCheckRunner.createSettings()` aplica:
+  `nvd.api.delay` (env `DPCK_NVD_API_DELAY_MS`, padrao 4000ms) e
+  `nvd.api.max.retry.count` (env `DPCK_NVD_MAX_RETRIES`, padrao 10) — bem
+  abaixo do default agressivo do dep-check (0ms/30 retries) para reduzir
+  ruido no log e dar tempo da API se recuperar. `LogUtils` tambem rebaixa
+  `AsyncHttpRequestRetryExec` e `NvdApiRetryStrategy` para WARN em modo
+  normal (em `DPCK_DEBUG=debug` voltam ao default).

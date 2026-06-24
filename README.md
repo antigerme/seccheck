@@ -44,6 +44,8 @@ A aplicação não possui *hardcodes* e foi desenhada para o princípio do 12-Fa
 | `DPCK_SCAN_TTL_MINUTES` | Opcional | TTL (minutos) para scans `COMPLETED`/`ERROR`/`CANCELLED` antes de serem removidos da memória. Padrão `120`. | `240` |
 | `DPCK_SCAN_STUCK_MINUTES` | Opcional | TTL (minutos) para scans que aparentam estar travados em `RUNNING`/`QUEUED`. Padrão `240`. | `480` |
 | `NVD_API_KEY` | Recomendada | Chave da API oficial do NVD. Fundamental em produção para evitar bloqueios de IP (Rate Limit) do governo americano e acelerar muito a atualização das bases. | `sua-chave-aqui-123` |
+| `DPCK_NVD_API_DELAY_MS` | Opcional | Delay (ms) entre requests à NVD API. A NVD é historicamente instável (503/HTTP2 stream reset); o default da app é `4000` (vs. `0` do dep-check) para espaçar os retries. | `4000` |
+| `DPCK_NVD_MAX_RETRIES` | Opcional | Teto de retries por request à NVD. Default da app é `10` (vs. `30` do dep-check), bem mais econômico em log/tempo quando a API está fora. | `10` |
 | `OSS_INDEX_USER` | Opcional | E-mail da conta do Sonatype OSS Index (caso queira varrer bancos externos além do NVD). | `seguranca@empresa.com` |
 | `OSS_INDEX_PASS` | Opcional | Senha da conta do Sonatype OSS Index. | `SenhaForte` |
 

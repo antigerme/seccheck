@@ -40,6 +40,19 @@ public class LogUtils {
         System.setProperty("org.slf4j.simpleLogger.dateTimeFormat", "yyyy-MM-dd HH:mm:ss.SSS");
         System.setProperty("org.slf4j.simpleLogger.showThreadName", "true");
         System.setProperty("org.slf4j.simpleLogger.showShortLogName", "true");
+
+        // Silencia o INFO bombardeado pelo cliente HTTP do dep-check (Apache HC5)
+        // e pelo retry strategy do NVD quando a API esta degradada — ~30 linhas por
+        // request falhado. WARN ainda mantem visibilidade de problemas reais.
+        // Em debug/trace global, voltam ao nivel padrao.
+        if (!DEBUG) {
+            System.setProperty(
+                "org.slf4j.simpleLogger.log.org.apache.hc.client5.http.impl.async.AsyncHttpRequestRetryExec",
+                "warn");
+            System.setProperty(
+                "org.slf4j.simpleLogger.log.io.github.jeremylong.openvulnerability.client.nvd.NvdApiRetryStrategy",
+                "warn");
+        }
     }
 
     public static void debug(String msg) {
