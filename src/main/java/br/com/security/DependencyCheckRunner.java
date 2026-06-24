@@ -32,6 +32,16 @@ public class DependencyCheckRunner {
             LogUtils.warn("NVD_API_KEY NAO definida. Sujeito a rate limit do governo americano.");
         }
 
+        // Resiliencia contra instabilidade da NVD API (503/HTTP2 stream reset).
+        // Padroes do dep-check: delay=0ms, max.retry.count=30 — somam ~150 linhas de
+        // log por rodada quando a API esta degradada. Espacamos os retries e cortamos
+        // o teto para reduzir ruido e dar mais janela para a API se recuperar.
+        int nvdDelayMs = AppContextListener.getEnvInt("DPCK_NVD_API_DELAY_MS", 4000);
+        int nvdMaxRetries = AppContextListener.getEnvInt("DPCK_NVD_MAX_RETRIES", 10);
+        settings.setInt("nvd.api.delay", nvdDelayMs);
+        settings.setInt("nvd.api.max.retry.count", nvdMaxRetries);
+        LogUtils.debug("NVD resiliencia: delay=" + nvdDelayMs + "ms, maxRetries=" + nvdMaxRetries);
+
         String ossUser = System.getenv("OSS_INDEX_USER");
         String ossPass = System.getenv("OSS_INDEX_PASS");
 
