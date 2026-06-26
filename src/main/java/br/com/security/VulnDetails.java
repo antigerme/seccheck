@@ -91,10 +91,20 @@ public final class VulnDetails {
         return (s == null || s.isBlank()) ? null : s;
     }
 
-    /** v.getCvssV3().getCvssData().getVectorString() — tolera ausencia de v3. */
+    /**
+     * Devolve o vector string (CVSSv4 preferido, fallback v3) — mesma ordem
+     * de preferencia que {@link Severity#extractBaseScore}, mantendo paridade
+     * entre score e vector reportados.
+     */
     private static String extractCvssVector(Vulnerability v) {
+        String v4 = tryVector(v, "getCvssV4");
+        if (v4 != null) return v4;
+        return tryVector(v, "getCvssV3");
+    }
+
+    private static String tryVector(Vulnerability v, String accessor) {
         try {
-            Object cvss = v.getClass().getMethod("getCvssV3").invoke(v);
+            Object cvss = v.getClass().getMethod(accessor).invoke(v);
             if (cvss == null) return null;
             Object data = cvss.getClass().getMethod("getCvssData").invoke(cvss);
             if (data == null) return null;
