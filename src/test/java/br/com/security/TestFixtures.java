@@ -2,6 +2,8 @@ package br.com.security;
 
 import io.github.jeremylong.openvulnerability.client.nvd.CvssV3;
 import io.github.jeremylong.openvulnerability.client.nvd.CvssV3Data;
+import io.github.jeremylong.openvulnerability.client.nvd.CvssV4;
+import io.github.jeremylong.openvulnerability.client.nvd.CvssV4Data;
 import org.owasp.dependencycheck.Engine;
 import org.owasp.dependencycheck.dependency.Confidence;
 import org.owasp.dependencycheck.dependency.Dependency;
@@ -41,6 +43,13 @@ final class TestFixtures {
         CvssV3Data data = new CvssV3Data(CvssV3Data.Version._3_1, vector,
             Double.valueOf(score), sev);
         return new CvssV3("NVD", CvssV3.Type.PRIMARY, data);
+    }
+
+    /** CvssV4 4.0 com score/severity/vector dados — sem v3/v2 de fallback. */
+    static CvssV4 cvssV4(double score, CvssV4Data.SeverityType sev, String vector) {
+        CvssV4Data data = new CvssV4Data(CvssV4Data.Version._4_0, vector,
+            Double.valueOf(score), sev);
+        return new CvssV4("OSSINDEX", CvssV4.Type.PRIMARY, data);
     }
 
     /**

@@ -47,12 +47,19 @@ public final class Severity {
     }
 
     /**
-     * Extrai o maior CVSS base score (v3 > v2 quando ambos presentes).
+     * Extrai o maior CVSS base score (v4 > v3 > v2 quando presentes).
      * Tolerante a duas variantes de API:
-     *   1) {@code v.getCvssV3().getCvssData().getBaseScore()} (12.x+)
-     *   2) {@code v.getCvssV3().getBaseScore()} (versoes mais antigas)
+     *   1) {@code v.getCvssV{X}().getCvssData().getBaseScore()} (12.x+)
+     *   2) {@code v.getCvssV{X}().getBaseScore()} (versoes mais antigas)
+     *
+     * Preferencia pelo mais novo: CVEs publicados a partir de 2024 vem com
+     * CVSSv4 e frequentemente SEM v3/v2. Se nao tentassemos v4 primeiro, esses
+     * CVEs ficariam com score 0 e severidade NONE — e a UI mostraria o cofre
+     * "limpo" mesmo com vulnerabilidade real (era o bug pre-fix).
      */
     static double extractBaseScore(Vulnerability v) {
+        double v4 = tryExtract(v, "getCvssV4");
+        if (v4 > 0) return v4;
         double v3 = tryExtract(v, "getCvssV3");
         if (v3 > 0) return v3;
         return tryExtract(v, "getCvssV2");
